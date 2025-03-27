@@ -240,12 +240,8 @@ export const subscribeToUserNotifications = (callback) => {
     const currentUser = auth.currentUser;
     
     if (!currentUser) {
-      console.log("No authenticated user found for notification subscription");
       return null;
     }
-    
-    console.log("Setting up notification subscription for user:", currentUser.uid);
-    console.log("User data:", currentUser);
     
     // Check if we need to use studentId instead of uid
     const userId = currentUser.uid;
@@ -255,7 +251,6 @@ export const subscribeToUserNotifications = (callback) => {
     let notificationsQuery;
     
     if (studentId) {
-      console.log("User has studentId:", studentId);
       // Query for notifications with either uid or studentId
       notificationsQuery = query(
         collection(db, 'notifications'),
@@ -263,7 +258,6 @@ export const subscribeToUserNotifications = (callback) => {
         orderBy('createdAt', 'desc')
       );
     } else {
-      console.log("User does not have studentId, using uid only");
       notificationsQuery = query(
         collection(db, 'notifications'),
         where('userId', '==', userId),
@@ -271,13 +265,11 @@ export const subscribeToUserNotifications = (callback) => {
       );
     }
     
-    console.log("Setting up onSnapshot listener");
     const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
       const notifications = [];
       
       snapshot.forEach(doc => {
         const data = doc.data();
-        console.log("Notification found:", doc.id, data);
         
         notifications.push({
           id: doc.id,
@@ -286,7 +278,6 @@ export const subscribeToUserNotifications = (callback) => {
         });
       });
       
-      console.log("Total notifications found:", notifications.length);
       callback(notifications);
     }, (error) => {
       console.error("Error in notification subscription:", error);

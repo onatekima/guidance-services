@@ -67,13 +67,9 @@ export const getAvailableTimeSlots = async (date) => {
     bookedTimeSlots.push(doc.data().timeSlot);
   });
   
-  console.log("Booked time slots:", bookedTimeSlots);
-  
   const availableTimeSlots = allTimeSlots.filter(
     timeSlot => !bookedTimeSlots.includes(timeSlot)
   );
-  
-  console.log("Available time slots:", availableTimeSlots);
   
   return availableTimeSlots;
 };
@@ -295,18 +291,11 @@ const getNotificationMessage = (status, appointment) => {
 export const checkUpcomingAppointments = async (appointments, userId) => {
   try {
     if (!appointments || !Array.isArray(appointments) || appointments.length === 0 || !userId) {
-      console.log("No appointments to check or missing userId");
       return false;
     }
     
-    console.log("Checking upcoming appointments for user:", userId);
-    console.log("Total appointments to check:", appointments.length);
-    
     const now = new Date();
-    console.log("Current time:", now.toLocaleString());
-    
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-    console.log("Checking appointments until:", thirtyMinutesFromNow.toLocaleString());
     
     const notifiedAppointmentsRef = doc(db, 'notifiedAppointments', userId);
     const notifiedAppointmentsDoc = await getDoc(notifiedAppointmentsRef);
@@ -315,47 +304,33 @@ export const checkUpcomingAppointments = async (appointments, userId) => {
       ? notifiedAppointmentsDoc.data().appointments || []
       : [];
     
-    console.log("Previously notified appointments:", notifiedAppointments);
-    
     const newNotifiedAppointments = [...notifiedAppointments];
     let notificationsCreated = false;
     
     for (const appointment of appointments) {
-      console.log("Checking appointment:", appointment.id, "Status:", appointment.status);
-      
       if (appointment.status !== 'confirmed' || notifiedAppointments.includes(appointment.id)) {
-        console.log("Skipping - not confirmed or already notified");
         continue;
       }
       
       const appointmentDateTime = parseAppointmentDateTime(appointment.date, appointment.timeSlot);
       
       if (!appointmentDateTime) {
-        console.log("Skipping - could not parse date/time");
         continue;
       }
       
-      console.log("Appointment date/time:", appointmentDateTime.toLocaleString());
-      
       if (appointmentDateTime > now && appointmentDateTime <= thirtyMinutesFromNow) {
-        console.log("Creating notification for appointment:", appointment.id);
-        
         try {
           await createAppointmentReminderNotification(userId, appointment);
-          console.log("Notification created successfully");
           
           newNotifiedAppointments.push(appointment.id);
           notificationsCreated = true;
         } catch (notificationError) {
           console.error("Error creating notification:", notificationError);
         }
-      } else {
-        console.log("Appointment not within time window");
       }
     }
     
     if (notificationsCreated) {
-      console.log("Updating notified appointments list");
       await setDoc(notifiedAppointmentsRef, {
         appointments: newNotifiedAppointments
       }, { merge: true });
@@ -371,24 +346,16 @@ export const checkUpcomingAppointments = async (appointments, userId) => {
 const parseAppointmentDateTime = (date, timeSlot) => {
   try {
     if (!date || !timeSlot) {
-      console.log("Missing date or timeSlot");
       return null;
     }
-    
-    console.log("Parsing date:", date, "timeSlot:", timeSlot);
     
     let dateStr = date;
     if (typeof date === 'object' && date.toDate) {
       dateStr = moment(date.toDate()).format('YYYY-MM-DD');
     }
     
-    console.log("Formatted date string:", dateStr);
-    
     const startTime = timeSlot.split(' - ')[0];
-    console.log("Start time:", startTime);
-    
     const parsedDateTime = moment(`${dateStr} ${startTime}`, 'YYYY-MM-DD h:mm A').toDate();
-    console.log("Parsed date/time:", parsedDateTime.toLocaleString());
     
     return parsedDateTime;
   } catch (error) {
@@ -403,8 +370,6 @@ export const forceCheckUpcomingAppointments = async (studentId) => {
       console.error("No studentId provided");
       throw new Error("Student ID is required");
     }
-    
-    console.log("Force checking upcoming appointments for student:", studentId);
     
     // Get the user's appointments
     const appointmentsQuery = query(
@@ -422,17 +387,13 @@ export const forceCheckUpcomingAppointments = async (studentId) => {
       });
     });
     
-    console.log("Found", appointments.length, "appointments for student");
-    
     if (appointments.length === 0) {
-      console.log("No appointments found for student");
       return false;
     }
     
     // Check for upcoming appointments
     // Use studentId as the userId for notifications
     const result = await checkUpcomingAppointments(appointments, studentId);
-    console.log("Check result:", result);
     return result;
   } catch (error) {
     console.error("Error force checking upcoming appointments:", error);

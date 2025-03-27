@@ -144,12 +144,12 @@ const LoginPage = () => {
         >
           <Form.Item
             name="studentId"
-            label="Student ID"
-            rules={[{ required: true, message: 'Please enter your student ID' }]}
+            label="Username"
+            rules={[{ required: true, message: 'Please enter your username' }]}
           >
             <Input 
               prefix={<UserOutlined />} 
-              placeholder="Enter your student ID" 
+              placeholder="Enter your username" 
               size="large" 
             />
           </Form.Item>
@@ -172,9 +172,9 @@ const LoginPage = () => {
             </SubmitButton>
           </Form.Item>
           
-          <div style={{ textAlign: 'center' }}>
+          {/* <div style={{ textAlign: 'center' }}>
             <Link to="/forgot-password">Forgot password?</Link>
-          </div>
+          </div> */}
         </StyledForm>
         
         <Divider>New to the platform?</Divider>

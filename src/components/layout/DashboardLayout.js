@@ -311,7 +311,12 @@ const DashboardLayout = () => {
     {
       key: '1',
       icon: <UserOutlined />,
-      label: `${currentUser?.email || 'No email'}`,
+      label: (
+        <div>
+          <div style={{ fontWeight: 'bold' }}>{currentUser?.name || 'User'}</div>
+          <div style={{ fontSize: '12px', color: 'rgba(0, 0, 0, 0.45)' }}>{currentUser?.email || 'No email'}</div>
+        </div>
+      ),
       disabled: true
     },
     {

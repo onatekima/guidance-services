@@ -16,6 +16,7 @@ import AnonymousConsultation from './pages/AnonymousConsultation';
 import Resources from './pages/Resources';
 import Feedback from './pages/Feedback';
 import NewsFeed from './pages/NewsFeed';
+import Settings from './pages/Settings';
 
 // Guidance Pages
 import GuidanceAppointments from './pages/guidance/GuidanceAppointments';
@@ -47,6 +48,7 @@ function App() {
                   <Route path="/anonymous-consultation" element={<AnonymousConsultation />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/feedback" element={<Feedback />} />
+                  <Route path="/settings" element={<Settings />} />
                 </Route>
               </Route>
               
@@ -58,6 +60,7 @@ function App() {
                   <Route path="/guidance/anonymous-consultations" element={<GuidanceAnonymousConsultations />} />
                   <Route path="/guidance/resources" element={<GuidanceResources />} />
                   <Route path="/guidance/feedback" element={<GuidanceFeedback />} />
+                  <Route path="/guidance/settings" element={<Settings />} />
                 </Route>
               </Route>
               

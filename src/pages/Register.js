@@ -99,12 +99,12 @@ const RegisterPage = () => {
             label="Student ID"
             rules={[
               { required: true, message: 'Please enter your student ID' },
-              { pattern: /^\d{5}MN-\d{6}$/, message: 'Please use format: 11718MN-012140' }
+              { pattern: /^\d{5}MN-\d{6}$/, message: 'Please use proper format' }
             ]}
           >
             <Input 
               prefix={<IdcardOutlined />} 
-              placeholder="Enter your student ID (e.g., 11718MN-012140)" 
+              placeholder="Enter your student ID (this will be your username)" 
               size="large" 
             />
           </Form.Item>
