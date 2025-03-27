@@ -262,8 +262,8 @@ const DashboardLayout = () => {
   const menuItems = [
     {
       key: '1',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      icon: <MessageOutlined />,
+      label: 'News Feed',
       onClick: () => {
         navigate('/');
         if (mobileView) setMobileDrawerVisible(false);
@@ -305,15 +305,6 @@ const DashboardLayout = () => {
         if (mobileView) setMobileDrawerVisible(false);
       }
     },
-    {
-      key: '6',
-      icon: <MessageOutlined />,
-      label: 'News Feed',
-      onClick: () => {
-        navigate('/news-feed');
-        if (mobileView) setMobileDrawerVisible(false);
-      }
-    }
   ];
 
   const userMenuItems = [

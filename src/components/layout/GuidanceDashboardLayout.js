@@ -31,7 +31,7 @@ const StyledSider = styled(Sider)`
   z-index: 10;
   overflow: auto;
   box-shadow: 2px 0 8px rgba(0,0,0,0.15);
-  background-color: #f9f9f9 !important; /* Changed from #f0f7ff to light gray */
+  background-color: #f9f9f9 !important;
   
   .ant-layout-sider-children {
     display: flex;
@@ -55,7 +55,7 @@ const StyledSider = styled(Sider)`
   
   /* Override ant design menu styles */
   .ant-menu {
-    background-color: #f9f9f9 !important; /* Changed from #f0f7ff to light gray */
+    background-color: #f9f9f9 !important;
     color: #333;
     border-right: none;
     display: flex;
@@ -64,25 +64,25 @@ const StyledSider = styled(Sider)`
   }
   
   .ant-menu-item {
-    color: #333333; /* Changed from #1890ff to dark gray */
+    color: #333333; 
     margin: 0;
     height: 50px;
     line-height: 50px;
     display: flex;
     
     &:hover {
-      background-color: #e5e5e5; /* Changed from rgba(24, 144, 255, 0.1) to light gray */
+      background-color: #e5e5e5;
     }
   }
   
   .ant-menu-item-selected {
-    background-color: #d0d0d0 !important; /* Changed from rgba(24, 144, 255, 0.2) to medium gray */
-    color: #001529; /* Changed from #1890ff to dark blue */
+    background-color: #d0d0d0 !important;
+    color: #001529; 
     font-weight: 500;
   }
   
   .ant-menu-item .anticon {
-    color: #333333; /* Changed from #1890ff to dark gray */
+    color: #333333; 
   }
 `;
 
@@ -100,7 +100,7 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #001529; /* Dark header background */
+  background: #001529;
   margin-bottom: 1px;
 `;
 
@@ -174,7 +174,6 @@ const StyledMenu = styled(Menu)`
     background-color: transparent;
   }
   
-  /* Ensure menu items don't truncate text */
   .ant-menu-title-content {
     white-space: normal;
     line-height: 1.4;
@@ -257,8 +256,8 @@ const GuidanceDashboardLayout = () => {
   const menuItems = [
     {
       key: '1',
-      icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      icon: <MessageOutlined />,
+      label: 'News Feed',
       onClick: () => {
         navigate('/guidance');
         if (mobileView) setMobileDrawerVisible(false);
@@ -300,15 +299,6 @@ const GuidanceDashboardLayout = () => {
         if (mobileView) setMobileDrawerVisible(false);
       }
     },
-    {
-      key: '6',
-      icon: <MessageOutlined />,
-      label: 'News Feed',
-      onClick: () => {
-        navigate('/guidance/news-feed');
-        if (mobileView) setMobileDrawerVisible(false);
-      }
-    }
   ];
 
   const renderSidebar = () => (
