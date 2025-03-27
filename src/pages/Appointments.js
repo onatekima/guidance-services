@@ -1,59 +1,53 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Typography, Tabs } from 'antd';
-import { getStudentAppointments, checkUpcomingAppointments } from '../firebase/appointments';
+import { Typography, Tabs, Button } from 'antd';
 import AppointmentForm from '../components/AppointmentScheduling/AppointmentForm';
 import AppointmentList from '../components/AppointmentScheduling/AppointmentList';
+import { useAuth } from '../context/AuthContext';
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
 
 const PageContainer = styled.div`
-  width: 100%;
+  padding: 24px;
+  
+  @media (max-width: ${props => props.theme.breakpoints.md}) {
+    padding: 16px;
+  }
 `;
 
-const PageTitle = styled(Title)`
-  margin-bottom: 24px !important;
+const PageHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
 `;
 
-const AppointmentsPage = () => {
-  const [appointments, setAppointments] = useState([]);
+const Appointments = () => {
+  const [activeTab, setActiveTab] = useState('1');
+  const auth = useAuth();
 
-  useEffect(() => {
-    fetchAppointments();
-    
-    const interval = setInterval(() => {
-      checkUpcomingAppointments(appointments);
-    }, 60000);
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (appointments.length > 0) {
-      checkUpcomingAppointments(appointments);
-    }
-  }, [appointments]);
-
-  const fetchAppointments = async () => {
-    try {
-      const studentId = localStorage.getItem('studentId');
-      const fetchedAppointments = await getStudentAppointments(studentId);
-      setAppointments(fetchedAppointments);
-    } catch (error) {
-      console.error("Error fetching appointments:", error);
-    }
+  const handleTabChange = (key) => {
+    setActiveTab(key);
   };
 
   return (
     <PageContainer>
-      <PageTitle level={2}>Appointments</PageTitle>
+      <PageHeader>
+        <Title level={2}>Appointments</Title>
+      </PageHeader>
       
-      <Tabs defaultActiveKey="book">
-        <TabPane tab="Book Appointment" key="book">
+      <Tabs activeKey={activeTab} onChange={handleTabChange}>
+        <TabPane tab="Book Appointment" key="1">
           <AppointmentForm />
         </TabPane>
-        <TabPane tab="My Appointments" key="my">
+        <TabPane tab="My Appointments" key="2">
           <AppointmentList />
         </TabPane>
       </Tabs>
@@ -61,4 +55,4 @@ const AppointmentsPage = () => {
   );
 };
 
-export default AppointmentsPage;
+export default Appointments;

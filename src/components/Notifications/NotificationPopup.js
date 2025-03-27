@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Badge, Dropdown, List, Typography, Tabs, Button, Empty, message, Spin, Alert } from 'antd';
-import { BellOutlined, CheckOutlined, ReloadOutlined } from '@ant-design/icons';
+import { BellOutlined, CheckOutlined, InboxOutlined } from '@ant-design/icons';
 import { 
   getUserNotifications, 
   markAllNotificationsAsRead, 
@@ -17,35 +17,46 @@ const NotificationBell = styled.div`
   font-size: 20px;
   cursor: pointer;
   padding: 0 12px;
+  transition: all 0.3s;
+  
+  &:hover {
+    transform: scale(1.05);
+  }
 `;
 
 const NotificationContainer = styled.div`
   width: 350px;
   max-height: 400px;
   background: white;
-  border-radius: 4px;
-  box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.08),
-              0 9px 28px 0 rgba(0, 0, 0, 0.05),
-              0 12px 48px 16px rgba(0, 0, 0, 0.03);
+  border-radius: 8px;
   overflow: hidden;
+  
+  @media (max-width: ${props => props.theme.breakpoints.sm}) {
+    width: 300px;
+  }
+  
+  @media (max-width: ${props => props.theme.breakpoints.xs}) {
+    width: 280px;
+  }
 `;
 
 const NotificationHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px;
   border-bottom: 1px solid #f0f0f0;
 `;
 
 const NotificationTitle = styled(Text)`
-  font-weight: 500;
+  font-weight: 600;
   font-size: 16px;
 `;
 
 const NotificationItem = styled(List.Item)`
   padding: 12px 16px !important;
   cursor: pointer;
+  transition: background-color 0.2s ease;
   
   &:hover {
     background-color: ${props => props.theme.colors.light};
@@ -70,30 +81,65 @@ const NotificationTabs = styled(Tabs)`
     margin-bottom: 0;
     padding: 0 16px;
   }
+  
+  .ant-tabs-tab {
+    padding: 12px 0;
+    font-size: 14px;
+  }
+  
+  .ant-tabs-tab-active {
+    font-weight: 500;
+  }
+  
+  .ant-tabs-ink-bar {
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+  }
 `;
 
 const EmptyContainer = styled.div`
-  padding: 24px 0;
+  padding: 32px 0;
+  
+  .ant-empty-image {
+    height: 80px;
+  }
+  
+  .ant-empty-description {
+    color: ${props => props.theme.colors.textSecondary};
+    font-size: 14px;
+  }
 `;
 
 const LoadingContainer = styled.div`
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 24px 0;
+  padding: 32px 0;
 `;
 
 const MarkAllReadButton = styled(Button)`
   font-size: 12px;
-  height: 24px;
-  padding: 0 8px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 4px;
 `;
 
-const RefreshButton = styled(Button)`
-  font-size: 12px;
-  height: 24px;
-  padding: 0 8px;
-  margin-left: 8px;
+const CustomEmpty = styled(Empty)`
+  .ant-empty-image {
+    color: ${props => props.theme.colors.textSecondary};
+  }
+`;
+
+const StyledDropdown = styled(Dropdown)`
+  .ant-dropdown-menu {
+    padding: 0;
+    border-radius: 8px;
+  }
+  
+  .ant-dropdown-menu-item .ant-dropdown-menu-item-only-child{
+    padding: 0;
+    margin: 0;
+  }
 `;
 
 const NotificationPopup = () => {
@@ -102,31 +148,23 @@ const NotificationPopup = () => {
   const [error, setError] = useState(null);
   const [visible, setVisible] = useState(false);
 
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const userNotifications = await getUserNotifications();
-      setNotifications(userNotifications);
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      setError("Failed to load notifications");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchNotifications();
+    setLoading(true);
+    console.log("Setting up notification subscription");
     
     const unsubscribe = subscribeToUserNotifications((newNotifications) => {
+      console.log("Received notifications update:", newNotifications);
       if (newNotifications) {
         setNotifications(newNotifications);
       }
+      setLoading(false);
     });
     
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (unsubscribe) {
+        console.log("Unsubscribing from notifications");
+        unsubscribe();
+      }
     };
   }, []);
 
@@ -178,13 +216,10 @@ const NotificationPopup = () => {
             <NotificationTitle>Notifications</NotificationTitle>
             <div>
               {unreadCount > 0 && (
-                <MarkAllReadButton type="text" icon={<CheckOutlined />} onClick={handleMarkAllAsRead}>
+                <MarkAllReadButton type="primary" ghost icon={<CheckOutlined />} onClick={handleMarkAllAsRead}>
                   Mark all as read
                 </MarkAllReadButton>
               )}
-              <RefreshButton type="text" icon={<ReloadOutlined />} onClick={fetchNotifications}>
-                Refresh
-              </RefreshButton>
             </div>
           </NotificationHeader>
           
@@ -195,7 +230,10 @@ const NotificationPopup = () => {
               showIcon 
               style={{ margin: '8px 16px' }}
               action={
-                <Button size="small" onClick={fetchNotifications}>
+                <Button size="small" onClick={() => {
+                  setError(null);
+                  setLoading(true);
+                }}>
                   Retry
                 </Button>
               }
@@ -206,7 +244,7 @@ const NotificationPopup = () => {
             <TabPane tab="All" key="all">
               {loading ? (
                 <LoadingContainer>
-                  <Spin size="small" />
+                  <Spin size="default" />
                 </LoadingContainer>
               ) : notifications.length > 0 ? (
                 <List
@@ -219,9 +257,9 @@ const NotificationPopup = () => {
                       onClick={() => handleNotificationClick(item)}
                     >
                       <NotificationContent>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           {getNotificationIcon(item.type)}
-                          <Text strong>{item.title}</Text>
+                          <Text style={{ flexGrow: '1' }}  strong>{item.title}</Text>
                           {item.unread && <Badge color="blue" />}
                         </div>
                         <Text>{item.message}</Text>
@@ -236,8 +274,8 @@ const NotificationPopup = () => {
                 />
               ) : (
                 <EmptyContainer>
-                  <Empty 
-                    image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                  <CustomEmpty 
+                    image={<InboxOutlined style={{ fontSize: 48 }} />}
                     description="No notifications" 
                   />
                 </EmptyContainer>
@@ -247,7 +285,7 @@ const NotificationPopup = () => {
             <TabPane tab="Unread" key="unread">
               {loading ? (
                 <LoadingContainer>
-                  <Spin size="small" />
+                  <Spin size="default" />
                 </LoadingContainer>
               ) : notifications.filter(n => n.unread).length > 0 ? (
                 <List
@@ -277,8 +315,8 @@ const NotificationPopup = () => {
                 />
               ) : (
                 <EmptyContainer>
-                  <Empty 
-                    image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                  <CustomEmpty 
+                    image={<InboxOutlined style={{ fontSize: 48 }} />}
                     description="No unread notifications" 
                   />
                 </EmptyContainer>
@@ -291,20 +329,21 @@ const NotificationPopup = () => {
   };
 
   return (
-    <Dropdown 
+    <StyledDropdown 
       menu={dropdownMenu}
       trigger={['click']} 
       open={visible}
       onOpenChange={setVisible}
       placement="bottomRight"
       arrow
+      getPopupContainer={triggerNode => triggerNode.parentNode}
     >
       <NotificationBell>
         <Badge count={unreadCount} size="small">
           <BellOutlined style={{ fontSize: '20px' }} />
         </Badge>
       </NotificationBell>
-    </Dropdown>
+    </StyledDropdown>
   );
 };
 

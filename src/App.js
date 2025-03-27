@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from 'styled-components';
 import theme from './theme/theme';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
 import PrivateRoute from './components/auth/PrivateRoute';
 
 // Layouts
@@ -31,38 +32,40 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Auth Routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            {/* Student Routes - Protected with role requirement */}
-            <Route element={<PrivateRoute requiredRole="student" />}>
-              <Route element={<DashboardLayout />}>
-                <Route path="/" element={<NewsFeed />} />
-                <Route path="/appointments" element={<Appointments />} />
-                <Route path="/anonymous-consultation" element={<AnonymousConsultation />} />
-                <Route path="/resources" element={<Resources />} />
-                <Route path="/feedback" element={<Feedback />} />
+        <NotificationProvider>
+          <Router>
+            <Routes>
+              {/* Auth Routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* Student Routes - Protected with role requirement */}
+              <Route element={<PrivateRoute requiredRole="student" />}>
+                <Route element={<DashboardLayout />}>
+                  <Route path="/" element={<NewsFeed />} />
+                  <Route path="/appointments" element={<Appointments />} />
+                  <Route path="/anonymous-consultation" element={<AnonymousConsultation />} />
+                  <Route path="/resources" element={<Resources />} />
+                  <Route path="/feedback" element={<Feedback />} />
+                </Route>
               </Route>
-            </Route>
-            
-            {/* Guidance Routes - Protected with role requirement */}
-            <Route element={<PrivateRoute requiredRole="guidance" />}>
-              <Route element={<GuidanceDashboardLayout />}>
-                <Route path="/guidance" element={<GuidanceNewsFeed />} />
-                <Route path="/guidance/appointments" element={<GuidanceAppointments />} />
-                <Route path="/guidance/anonymous-consultations" element={<GuidanceAnonymousConsultations />} />
-                <Route path="/guidance/resources" element={<GuidanceResources />} />
-                <Route path="/guidance/feedback" element={<GuidanceFeedback />} />
+              
+              {/* Guidance Routes - Protected with role requirement */}
+              <Route element={<PrivateRoute requiredRole="guidance" />}>
+                <Route element={<GuidanceDashboardLayout />}>
+                  <Route path="/guidance" element={<GuidanceNewsFeed />} />
+                  <Route path="/guidance/appointments" element={<GuidanceAppointments />} />
+                  <Route path="/guidance/anonymous-consultations" element={<GuidanceAnonymousConsultations />} />
+                  <Route path="/guidance/resources" element={<GuidanceResources />} />
+                  <Route path="/guidance/feedback" element={<GuidanceFeedback />} />
+                </Route>
               </Route>
-            </Route>
-            
-            {/* Redirect unknown routes to appropriate dashboard based on role */}
-            <Route path="*" element={<Navigate to="/login" replace />} />
-          </Routes>
-        </Router>
+              
+              {/* Redirect unknown routes to appropriate dashboard based on role */}
+              <Route path="*" element={<Navigate to="/login" replace />} />
+            </Routes>
+          </Router>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

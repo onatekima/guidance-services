@@ -183,6 +183,44 @@ export const getAllTimeSlots = async (date) => {
   }));
 };
 
+export const getFormattedAppointmentDetails = (appointment) => {
+  if (!appointment) return null;
+  
+  return {
+    ...appointment,
+    formattedDate: appointment.date,
+    formattedTime: appointment.timeSlot,
+    formattedStatus: appointment.status ? appointment.status.toUpperCase() : 'UNKNOWN',
+    formattedCreatedAt: appointment.createdAt ? 
+      (appointment.createdAt.toDate ? 
+        moment(appointment.createdAt.toDate()).format('YYYY-MM-DD HH:mm') : 
+        moment(appointment.createdAt).format('YYYY-MM-DD HH:mm')) : 
+      'Unknown',
+    statusColor: 
+      appointment.status === 'pending' ? 'gold' :
+      appointment.status === 'confirmed' ? 'blue' :
+      appointment.status === 'completed' ? 'green' :
+      appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'red' :
+      'default',
+    counselorTypeLabel: getCounselorTypeLabel(appointment.counselorType)
+  };
+};
+
+export const getCounselorTypeLabel = (type) => {
+  switch(type) {
+    case 'academic':
+      return 'Academic Counselor';
+    case 'career':
+      return 'Career Counselor';
+    case 'mental_health':
+      return 'Mental Health Counselor';
+    case 'general':
+      return 'General Guidance Counselor';
+    default:
+      return type || 'Unknown';
+  }
+};
+
 export const updateAppointmentStatus = async (appointmentId, status) => {
   try {
     const appointmentRef = doc(db, "appointments", appointmentId);
@@ -198,15 +236,20 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
     };
     
     await updateDoc(appointmentRef, {
-      status: status
+      status: status,
+      updatedAt: Timestamp.now()
     });
     
     if (appointmentData.studentId) {
-      await createAppointmentStatusNotification(
-        appointmentData.studentId,
-        appointmentData,
-        status
-      );
+      try {
+        await createAppointmentStatusNotification(
+          appointmentData.studentId,
+          appointmentData,
+          status
+        );
+      } catch (notificationError) {
+        console.error("Error creating notification:", notificationError);
+      }
     }
     
     return appointmentData;
@@ -216,42 +259,183 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
   }
 };
 
+const getNotificationTitle = (status) => {
+  switch(status) {
+    case 'confirmed':
+      return 'Appointment Confirmed';
+    case 'rejected':
+      return 'Appointment Rejected';
+    case 'completed':
+      return 'Appointment Completed';
+    case 'cancelled':
+      return 'Appointment Cancelled';
+    default:
+      return `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`;
+  }
+};
+
+const getNotificationMessage = (status, appointment) => {
+  const date = appointment.date;
+  const time = appointment.timeSlot;
+  
+  switch(status) {
+    case 'confirmed':
+      return `Your appointment on ${date} at ${time} has been confirmed.`;
+    case 'rejected':
+      return `Your appointment on ${date} at ${time} has been rejected. Please book another time slot.`;
+    case 'completed':
+      return `Your appointment on ${date} at ${time} has been marked as completed.`;
+    case 'cancelled':
+      return `Your appointment on ${date} at ${time} has been cancelled.`;
+    default:
+      return `Your appointment status has been updated to ${status}.`;
+  }
+};
+
 export const checkUpcomingAppointments = async (appointments, userId) => {
   try {
     if (!appointments || !Array.isArray(appointments) || appointments.length === 0 || !userId) {
-      return;
+      console.log("No appointments to check or missing userId");
+      return false;
     }
     
+    console.log("Checking upcoming appointments for user:", userId);
+    console.log("Total appointments to check:", appointments.length);
+    
     const now = new Date();
+    console.log("Current time:", now.toLocaleString());
+    
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
+    console.log("Checking appointments until:", thirtyMinutesFromNow.toLocaleString());
+    
+    const notifiedAppointmentsRef = doc(db, 'notifiedAppointments', userId);
+    const notifiedAppointmentsDoc = await getDoc(notifiedAppointmentsRef);
+    
+    const notifiedAppointments = notifiedAppointmentsDoc.exists() 
+      ? notifiedAppointmentsDoc.data().appointments || []
+      : [];
+    
+    console.log("Previously notified appointments:", notifiedAppointments);
+    
+    const newNotifiedAppointments = [...notifiedAppointments];
+    let notificationsCreated = false;
     
     for (const appointment of appointments) {
-      if (!appointment.date || appointment.status !== 'confirmed') {
+      console.log("Checking appointment:", appointment.id, "Status:", appointment.status);
+      
+      if (appointment.status !== 'confirmed' || notifiedAppointments.includes(appointment.id)) {
+        console.log("Skipping - not confirmed or already notified");
         continue;
       }
       
-      const appointmentTime = appointment.date.toDate ? 
-        appointment.date.toDate() : 
-        new Date(appointment.date);
+      const appointmentDateTime = parseAppointmentDateTime(appointment.date, appointment.timeSlot);
       
-      if (appointmentTime > now && appointmentTime <= thirtyMinutesFromNow) {
-        const notifiedAppointmentsRef = doc(db, 'notifiedAppointments', userId);
-        const notifiedAppointmentsDoc = await getDoc(notifiedAppointmentsRef);
+      if (!appointmentDateTime) {
+        console.log("Skipping - could not parse date/time");
+        continue;
+      }
+      
+      console.log("Appointment date/time:", appointmentDateTime.toLocaleString());
+      
+      if (appointmentDateTime > now && appointmentDateTime <= thirtyMinutesFromNow) {
+        console.log("Creating notification for appointment:", appointment.id);
         
-        const notifiedAppointments = notifiedAppointmentsDoc.exists() 
-          ? notifiedAppointmentsDoc.data().appointments || []
-          : [];
-        
-        if (!notifiedAppointments.includes(appointment.id)) {
+        try {
           await createAppointmentReminderNotification(userId, appointment);
+          console.log("Notification created successfully");
           
-          await setDoc(notifiedAppointmentsRef, {
-            appointments: [...notifiedAppointments, appointment.id]
-          }, { merge: true });
+          newNotifiedAppointments.push(appointment.id);
+          notificationsCreated = true;
+        } catch (notificationError) {
+          console.error("Error creating notification:", notificationError);
         }
+      } else {
+        console.log("Appointment not within time window");
       }
     }
+    
+    if (notificationsCreated) {
+      console.log("Updating notified appointments list");
+      await setDoc(notifiedAppointmentsRef, {
+        appointments: newNotifiedAppointments
+      }, { merge: true });
+    }
+    
+    return notificationsCreated;
   } catch (error) {
     console.error("Error checking upcoming appointments:", error);
+    return false;
+  }
+};
+
+const parseAppointmentDateTime = (date, timeSlot) => {
+  try {
+    if (!date || !timeSlot) {
+      console.log("Missing date or timeSlot");
+      return null;
+    }
+    
+    console.log("Parsing date:", date, "timeSlot:", timeSlot);
+    
+    let dateStr = date;
+    if (typeof date === 'object' && date.toDate) {
+      dateStr = moment(date.toDate()).format('YYYY-MM-DD');
+    }
+    
+    console.log("Formatted date string:", dateStr);
+    
+    const startTime = timeSlot.split(' - ')[0];
+    console.log("Start time:", startTime);
+    
+    const parsedDateTime = moment(`${dateStr} ${startTime}`, 'YYYY-MM-DD h:mm A').toDate();
+    console.log("Parsed date/time:", parsedDateTime.toLocaleString());
+    
+    return parsedDateTime;
+  } catch (error) {
+    console.error("Error parsing appointment date and time:", error);
+    return null;
+  }
+};
+
+export const forceCheckUpcomingAppointments = async (studentId) => {
+  try {
+    if (!studentId) {
+      console.error("No studentId provided");
+      throw new Error("Student ID is required");
+    }
+    
+    console.log("Force checking upcoming appointments for student:", studentId);
+    
+    // Get the user's appointments
+    const appointmentsQuery = query(
+      collection(db, 'appointments'),
+      where("studentId", "==", studentId)
+    );
+    
+    const appointmentsSnapshot = await getDocs(appointmentsQuery);
+    const appointments = [];
+    
+    appointmentsSnapshot.forEach(doc => {
+      appointments.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    console.log("Found", appointments.length, "appointments for student");
+    
+    if (appointments.length === 0) {
+      console.log("No appointments found for student");
+      return false;
+    }
+    
+    // Check for upcoming appointments
+    // Use studentId as the userId for notifications
+    const result = await checkUpcomingAppointments(appointments, studentId);
+    console.log("Check result:", result);
+    return result;
+  } catch (error) {
+    console.error("Error force checking upcoming appointments:", error);
+    throw error;
   }
 };

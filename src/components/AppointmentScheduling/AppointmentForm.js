@@ -167,15 +167,17 @@ const AppointmentForm = () => {
       
       const formattedDate = values.date.format('YYYY-MM-DD');
       
-      const firstName = auth.currentUser.firstName || '';
-      const lastName = auth.currentUser.lastName || '';
-      const fullName = firstName && lastName 
-        ? `${firstName} ${lastName}`
-        : auth.currentUser.email || 'Guest User';
+      let studentName = 'Guest User';
+      
+      if (auth.currentUser.name) {
+        studentName = auth.currentUser.name;
+      } else if (auth.currentUser.email) {
+        studentName = auth.currentUser.email;
+      }
       
       const appointmentData = {
         studentId: auth.currentUser.studentId || 'guest',
-        studentName: fullName,
+        studentName: studentName,
         counselorType: values.counselorType,
         date: formattedDate,
         timeSlot: values.timeSlot,

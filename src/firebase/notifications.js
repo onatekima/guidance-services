@@ -184,14 +184,48 @@ export const createAppointmentStatusNotification = async (studentId, appointment
  */
 export const createAppointmentReminderNotification = async (userId, appointment) => {
   try {
-    await createNotification(userId, {
+    console.log("Creating appointment reminder notification for user:", userId);
+    
+    // Check if userId is a studentId or a uid
+    let actualUserId = userId;
+    
+    // If it looks like a studentId (contains "-"), try to find the corresponding user
+    if (userId.includes("-")) {
+      console.log("userId appears to be a studentId, looking up corresponding user");
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where('studentId', '==', userId));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const userDoc = querySnapshot.docs[0];
+        actualUserId = userDoc.id; // Use the actual uid
+        console.log("Found corresponding user with uid:", actualUserId);
+      } else {
+        console.log("No user found with studentId:", userId, "using as is");
+      }
+    }
+    
+    // Create the notification data
+    const notificationData = {
+      userId: actualUserId, // Use the actual uid if found, otherwise use the provided userId
       type: 'appointment_reminder',
       title: 'Upcoming Appointment',
-      message: `You have an appointment scheduled in 30 minutes: ${appointment.purpose}`,
-      appointmentId: appointment.id
-    });
+      message: `You have an appointment scheduled within 5 hours: ${appointment.purpose || 'test'}`,
+      appointmentId: appointment.id,
+      createdAt: Timestamp.now(),
+      unread: true
+    };
+    
+    console.log("Notification data:", notificationData);
+    
+    // Add the notification to Firestore
+    const docRef = await addDoc(collection(db, 'notifications'), notificationData);
+    console.log("Notification created with ID:", docRef.id);
+    
+    return true;
   } catch (error) {
     console.error("Error creating appointment reminder notification:", error);
+    throw error;
   }
 };
 
@@ -210,23 +244,49 @@ export const subscribeToUserNotifications = (callback) => {
       return null;
     }
     
-    const notificationsQuery = query(
-      collection(db, 'notifications'),
-      where('userId', '==', currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+    console.log("Setting up notification subscription for user:", currentUser.uid);
+    console.log("User data:", currentUser);
     
+    // Check if we need to use studentId instead of uid
+    const userId = currentUser.uid;
+    const studentId = currentUser.studentId;
+    
+    // If the notification is using studentId as userId, we need to query both
+    let notificationsQuery;
+    
+    if (studentId) {
+      console.log("User has studentId:", studentId);
+      // Query for notifications with either uid or studentId
+      notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', 'in', [userId, studentId]),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      console.log("User does not have studentId, using uid only");
+      notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
+    }
+    
+    console.log("Setting up onSnapshot listener");
     const unsubscribe = onSnapshot(notificationsQuery, (snapshot) => {
       const notifications = [];
       
       snapshot.forEach(doc => {
+        const data = doc.data();
+        console.log("Notification found:", doc.id, data);
+        
         notifications.push({
           id: doc.id,
-          ...doc.data(),
-          time: doc.data().createdAt.toDate().toISOString()
+          ...data,
+          time: data.createdAt.toDate().toISOString()
         });
       });
       
+      console.log("Total notifications found:", notifications.length);
       callback(notifications);
     }, (error) => {
       console.error("Error in notification subscription:", error);

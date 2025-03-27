@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Typography, Tabs, List, Card, Tag, Button, Space, Empty, Spin, Alert, Modal, message, Collapse, Table } from 'antd';
-import { CheckOutlined, CloseOutlined, ReloadOutlined, EyeOutlined, BugOutlined } from '@ant-design/icons';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, Timestamp, orderBy } from 'firebase/firestore';
+import { CheckOutlined, CloseOutlined, ReloadOutlined, EyeOutlined, BugOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { updateAppointmentStatus } from '../../firebase/appointments';
+import { updateAppointmentStatus, getCounselorTypeLabel } from '../../firebase/appointments';
 import moment from 'moment';
 
 const { Title, Text } = Typography;
@@ -90,7 +90,10 @@ const GuidanceAppointments = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [debugInfo, setDebugInfo] = useState(null);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [rejectModalVisible, setRejectModalVisible] = useState(false);
+  const [appointmentToReject, setAppointmentToReject] = useState(null);
   const [indexUrl, setIndexUrl] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
 
@@ -146,32 +149,46 @@ const GuidanceAppointments = () => {
     }
   };
 
-  const handleRejectAppointment = async (appointmentId) => {
-    Modal.confirm({
-      title: 'Reject Appointment',
-      content: 'Are you sure you want to reject this appointment?',
-      okText: 'Yes',
-      okType: 'danger',
-      cancelText: 'No',
-      onOk: async () => {
-        try {
-          setActionLoading(true);
-          
-          await updateAppointmentStatus(appointmentId, 'rejected');
-          
-          setAppointments(appointments.map(app => 
-            app.id === appointmentId ? { ...app, status: 'rejected' } : app
-          ));
-          
-          message.success('Appointment rejected successfully');
-        } catch (error) {
-          console.error("Error rejecting appointment:", error);
-          message.error('Failed to reject appointment');
-        } finally {
-          setActionLoading(false);
-        }
+  const showRejectConfirmation = (appointmentId) => {
+    const appointment = appointments.find(app => app.id === appointmentId);
+    if (appointment) {
+      setAppointmentToReject(appointment);
+      setRejectModalVisible(true);
+    }
+  };
+
+  const handleRejectModalClose = () => {
+    setRejectModalVisible(false);
+    setAppointmentToReject(null);
+  };
+
+  const handleRejectAppointment = async () => {
+    if (!appointmentToReject) return;
+    
+    try {
+      setActionLoading(true);
+      
+      await updateAppointmentStatus(appointmentToReject.id, 'rejected');
+      
+      setAppointments(appointments.map(app => 
+        app.id === appointmentToReject.id ? { ...app, status: 'rejected' } : app
+      ));
+      
+      message.success('Appointment rejected successfully');
+      
+      setRejectModalVisible(false);
+      
+      if (selectedAppointment && selectedAppointment.id === appointmentToReject.id) {
+        setDetailsModalVisible(false);
+        setSelectedAppointment(null);
       }
-    });
+    } catch (error) {
+      console.error("Error rejecting appointment:", error);
+      message.error('Failed to reject appointment');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToReject(null);
+    }
   };
 
   const handleCompleteAppointment = async (appointmentId) => {
@@ -194,71 +211,19 @@ const GuidanceAppointments = () => {
   };
 
   const handleViewDetails = (record) => {
-    console.log("View details clicked for record:", record);
-    
     if (!record) {
       console.error("Record is undefined or null");
       message.error("Cannot view details: Record not found");
       return;
     }
     
-    try {
-      Modal.info({
-        title: 'Appointment Details',
-        width: window.innerWidth < 768 ? '90%' : 600,
-        icon: <EyeOutlined />,
-        className: 'appointment-details-modal',
-        content: (
-          <div style={{ maxHeight: '70vh', overflow: 'auto', padding: '8px 0' }}>
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
-              <h4 style={{ margin: '0 0 8px 0' }}>Student Information</h4>
-              <p style={{ margin: '4px 0' }}><strong>Student ID:</strong> {record.studentId}</p>
-              <p style={{ margin: '4px 0' }}><strong>Name:</strong> {record.studentName}</p>
-              <p style={{ margin: '4px 0' }}><strong>Email:</strong> {record.email || 'Not provided'}</p>
-            </div>
-            
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
-              <h4 style={{ margin: '0 0 8px 0' }}>Appointment Information</h4>
-              <p style={{ margin: '4px 0' }}><strong>Date:</strong> {record.date}</p>
-              <p style={{ margin: '4px 0' }}><strong>Time:</strong> {record.timeSlot}</p>
-              <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {record.counselorType}</p>
-              <p style={{ margin: '4px 0' }}>
-                <strong>Status:</strong> 
-                <Tag 
-                  style={{ marginLeft: '8px' }}
-                  color={
-                    record.status === 'pending' ? 'gold' :
-                    record.status === 'confirmed' ? 'blue' :
-                    record.status === 'completed' ? 'green' :
-                    record.status === 'rejected' || record.status === 'cancelled' ? 'red' :
-                    'default'
-                  }
-                >
-                  {record.status?.toUpperCase() || 'UNKNOWN'}
-                </Tag>
-              </p>
-            </div>
-            
-            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
-              <h4 style={{ margin: '0 0 8px 0' }}>Purpose</h4>
-              <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{record.purpose}</p>
-            </div>
-            
-            {record.notes && (
-              <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
-                <h4 style={{ margin: '0 0 8px 0' }}>Notes</h4>
-                <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{record.notes}</p>
-              </div>
-            )}
-          </div>
-        ),
-        okText: 'Close',
-        onOk() {},
-      });
-    } catch (error) {
-      console.error("Error displaying appointment details:", error);
-      message.error("Failed to display appointment details");
-    }
+    setSelectedAppointment(record);
+    setDetailsModalVisible(true);
+  };
+
+  const handleCloseDetailsModal = () => {
+    setDetailsModalVisible(false);
+    setSelectedAppointment(null);
   };
 
   const getColumns = () => {
@@ -309,7 +274,7 @@ const GuidanceAppointments = () => {
                   danger 
                   size="small" 
                   icon={<CloseOutlined />}
-                  onClick={() => handleRejectAppointment(record.id)}
+                  onClick={() => showRejectConfirmation(record.id)}
                   loading={actionLoading}
                 >
                   {window.innerWidth > 576 ? 'Reject' : ''}
@@ -482,6 +447,21 @@ const GuidanceAppointments = () => {
     );
   };
 
+  const getCounselorTypeLabel = (type) => {
+    switch(type) {
+      case 'academic':
+        return 'Academic Counselor';
+      case 'career':
+        return 'Career Counselor';
+      case 'mental_health':
+        return 'Mental Health Counselor';
+      case 'general':
+        return 'General Guidance Counselor';
+      default:
+        return type;
+    }
+  };
+
   return (
     <PageContainer>
       <PageTitle level={2}>Appointments</PageTitle>
@@ -497,6 +477,128 @@ const GuidanceAppointments = () => {
       </Space>
       
       {renderContent()}
+      
+      <Modal
+        title="Appointment Details"
+        open={detailsModalVisible}
+        onCancel={handleCloseDetailsModal}
+        footer={[
+          <Button key="close" onClick={handleCloseDetailsModal}>
+            Close
+          </Button>,
+          selectedAppointment?.status === 'pending' && (
+            <>
+              <Button 
+                key="approve" 
+                type="primary"
+                onClick={() => {
+                  handleCloseDetailsModal();
+                  handleApproveAppointment(selectedAppointment.id);
+                }}
+              >
+                Approve
+              </Button>
+              <Button 
+                key="reject" 
+                danger
+                onClick={() => {
+                  handleCloseDetailsModal();
+                  showRejectConfirmation(selectedAppointment.id);
+                }}
+              >
+                Reject
+              </Button>
+            </>
+          ),
+          selectedAppointment?.status === 'confirmed' && (
+            <Button 
+              key="complete" 
+              type="primary"
+              onClick={() => {
+                handleCloseDetailsModal();
+                handleCompleteAppointment(selectedAppointment.id);
+              }}
+            >
+              Mark as Completed
+            </Button>
+          )
+        ].filter(Boolean)}
+      >
+        {selectedAppointment && (
+          <div style={{ maxHeight: '60vh', overflow: 'auto' }}>
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+              <h4 style={{ margin: '0 0 8px 0' }}>Student Information</h4>
+              <p style={{ margin: '4px 0' }}><strong>Student ID:</strong> {selectedAppointment.studentId}</p>
+              <p style={{ margin: '4px 0' }}><strong>Name:</strong> {selectedAppointment.studentName}</p>
+              <p style={{ margin: '4px 0' }}><strong>Email:</strong> {selectedAppointment.email || 'Not provided'}</p>
+            </div>
+            
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+              <h4 style={{ margin: '0 0 8px 0' }}>Appointment Information</h4>
+              <p style={{ margin: '4px 0' }}><strong>Date:</strong> {selectedAppointment.date}</p>
+              <p style={{ margin: '4px 0' }}><strong>Time:</strong> {selectedAppointment.timeSlot}</p>
+              <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(selectedAppointment.counselorType)}</p>
+              <p style={{ margin: '4px 0' }}><strong>Status:</strong> 
+                <Tag 
+                  style={{ marginLeft: '8px' }}
+                  color={
+                    selectedAppointment.status === 'pending' ? 'gold' :
+                    selectedAppointment.status === 'confirmed' ? 'blue' :
+                    selectedAppointment.status === 'completed' ? 'green' :
+                    selectedAppointment.status === 'rejected' || selectedAppointment.status === 'cancelled' ? 'red' :
+                    'default'
+                  }
+                >
+                  {selectedAppointment.status?.toUpperCase() || 'UNKNOWN'}
+                </Tag>
+              </p>
+              <p style={{ margin: '4px 0' }}><strong>Created:</strong> {selectedAppointment.createdAt ? moment(selectedAppointment.createdAt.toDate()).format('YYYY-MM-DD HH:mm') : 'Unknown'}</p>
+            </div>
+            
+            <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+              <h4 style={{ margin: '0 0 8px 0' }}>Purpose</h4>
+              <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{selectedAppointment.purpose}</p>
+            </div>
+            
+            {selectedAppointment.notes && (
+              <div style={{ padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 8px 0' }}>Notes</h4>
+                <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{selectedAppointment.notes}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title={<><ExclamationCircleOutlined style={{ color: '#ff4d4f', marginRight: '8px' }} /> Reject Appointment</>}
+        open={rejectModalVisible}
+        onCancel={handleRejectModalClose}
+        footer={[
+          <Button key="back" onClick={handleRejectModalClose}>
+            No
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={actionLoading}
+            onClick={handleRejectAppointment}
+          >
+            Yes, Reject Appointment
+          </Button>,
+        ]}
+      >
+        <p>Are you sure you want to reject this appointment? This will free up the time slot for other students.</p>
+        {appointmentToReject && (
+          <div style={{ marginTop: '16px', background: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
+            <p style={{ margin: '4px 0' }}><strong>Student:</strong> {appointmentToReject.studentName}</p>
+            <p style={{ margin: '4px 0' }}><strong>Date:</strong> {appointmentToReject.date}</p>
+            <p style={{ margin: '4px 0' }}><strong>Time:</strong> {appointmentToReject.timeSlot}</p>
+            <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToReject.counselorType)}</p>
+          </div>
+        )}
+      </Modal>
     </PageContainer>
   );
 };

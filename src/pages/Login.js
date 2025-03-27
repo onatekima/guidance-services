@@ -196,15 +196,15 @@ const LoginPage = () => {
           Create Guidance Account (Remove in Production)
         </Button> */}
         
-        <FooterText type="secondary">
+        {/* <FooterText type="secondary">
           By logging in, you agree to our Terms of Service and Privacy Policy.
-        </FooterText>
+        </FooterText> */}
         
-        <FooterText type="secondary" style={{ marginTop: '8px' }}>
+        {/* <FooterText type="secondary" style={{ marginTop: '8px' }}>
           <strong>Demo Accounts:</strong><br />
           Student: 11718MN-012140<br />
           Guidance: guidance
-        </FooterText>
+        </FooterText> */}
       </LoginCard>
     </LoginContainer>
   );
