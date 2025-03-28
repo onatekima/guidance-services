@@ -210,7 +210,7 @@ export const createAppointmentReminderNotification = async (userId, appointment)
       userId: actualUserId, // Use the actual uid if found, otherwise use the provided userId
       type: 'appointment_reminder',
       title: 'Upcoming Appointment',
-      message: `You have an appointment scheduled within 5 hours: ${appointment.purpose || 'test'}`,
+      message: `You have an appointment scheduled within 30 minutes: ${appointment.purpose || ''}`,
       appointmentId: appointment.id,
       createdAt: Timestamp.now(),
       unread: true

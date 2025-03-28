@@ -102,12 +102,10 @@ const FeedbackPage = () => {
       setSubmittingFeedback(true);
       setFeedbackSuccess(false);
       
-      // Clean up the values object to handle empty fields
       const cleanValues = { ...values };
       
-      // Convert undefined values to empty strings or remove them
       if (cleanValues.improvements === undefined) {
-        cleanValues.improvements = ""; // Or you can use: delete cleanValues.improvements;
+        cleanValues.improvements = "";
       }
       
       await createFeedback(cleanValues);
@@ -116,7 +114,6 @@ const FeedbackPage = () => {
       feedbackForm.resetFields();
       setFeedbackSuccess(true);
       
-      // Refresh the user submissions list
       fetchUserSubmissions();
     } catch (error) {
       console.error("Error submitting feedback:", error);
@@ -137,7 +134,6 @@ const FeedbackPage = () => {
       inquiryForm.resetFields();
       setInquirySuccess(true);
       
-      // Refresh the user submissions list
       fetchUserSubmissions();
     } catch (error) {
       console.error("Error submitting inquiry:", error);
@@ -256,7 +252,7 @@ const FeedbackPage = () => {
                 label="How satisfied were you with the service?"
                 rules={[{ required: true, message: 'Please rate your satisfaction' }]}
               >
-                <Rate allowHalf />
+                <Rate />
               </Form.Item>
               
               <Form.Item

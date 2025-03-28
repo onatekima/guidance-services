@@ -6,6 +6,7 @@ import EmojiPicker from 'emoji-picker-react';
 import moment from 'moment';
 import { getUserProfile } from '../../firebase/postsService';
 import { subscribeMoods, addMood, getUserMood } from '../../firebase/moodService';
+import { useAuth } from '../../context/AuthContext';
 
 const MoodTrackerContainer = styled.div`
   padding: 20px;
@@ -93,6 +94,7 @@ const MoodTracker = ({ currentUser }) => {
   const [selectedEmoji, setSelectedEmoji] = useState(null);
   const [loading, setLoading] = useState(false);
   const [userCurrentMood, setUserCurrentMood] = useState(null);
+  const { isGuidance } = useAuth();
 
   useEffect(() => {
     const unsubscribe = subscribeMoods((newMoods) => {
@@ -193,13 +195,15 @@ const MoodTracker = ({ currentUser }) => {
         ))}
       </MoodList>
 
-      <SetMoodButton 
-        type="primary" 
-        icon={<PlusOutlined />}
-        onClick={handleOpenModal}
-      >
-        {getButtonText()}
-      </SetMoodButton>
+      {!isGuidance && (
+        <SetMoodButton 
+          type="primary" 
+          icon={<PlusOutlined />}
+          onClick={handleOpenModal}
+        >
+          {getButtonText()}
+        </SetMoodButton>
+      )}
 
       <Modal
         title="How are you feeling today?"

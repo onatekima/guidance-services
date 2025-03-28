@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { Typography, List, Card, Tag, Input, Button, Space, Empty, Spin, Alert, message } from 'antd';
-import { SendOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { SendOutlined, CheckCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { 
   collection, 
   query, 
@@ -16,7 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { createAnonymousReplyNotification } from '../../firebase/notifications';
-import { addReplyToPost, markPostAsResolved } from '../../firebase/anonymousPosts'
+import { addReplyToPost, markPostAsResolved, editReplyInPost } from '../../firebase/anonymousPosts'
 import moment from 'moment';
 
 const { Title, Paragraph, Text } = Typography;
@@ -82,6 +82,10 @@ const ChatContainer = styled.div`
   border-radius: 4px;
 `;
 
+const EditActions = styled(Space)`
+  margin-top: 8px;
+`;
+
 const GuidanceAnonymousConsultations = () => {
   const [consultations, setConsultations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +93,9 @@ const GuidanceAnonymousConsultations = () => {
   const [replyText, setReplyText] = useState({});
   const [submitting, setSubmitting] = useState({});
   const [activeConsultation, setActiveConsultation] = useState(null);
+  const [editingReplyIndex, setEditingReplyIndex] = useState(-1);
+  const [editReplyContent, setEditReplyContent] = useState('');
+  const [editingSubmitting, setEditingSubmitting] = useState(false);
   const chatContainerRef = useRef(null);
   const unsubscribeRefs = useRef({});
   const activeConsultationIdRef = useRef(null);
@@ -246,6 +253,33 @@ const GuidanceAnonymousConsultations = () => {
     }
   };
 
+  const handleEditReply = (replyIndex, content) => {
+    setEditingReplyIndex(replyIndex);
+    setEditReplyContent(content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReplyIndex(-1);
+    setEditReplyContent('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editReplyContent.trim() || !activeConsultation) return;
+    
+    try {
+      setEditingSubmitting(true);
+      await editReplyInPost(activeConsultation.id, editingReplyIndex, editReplyContent);
+      setEditingReplyIndex(-1);
+      setEditReplyContent('');
+      message.success('Reply updated successfully');
+    } catch (error) {
+      console.error("Error editing reply:", error);
+      message.error('Failed to update reply');
+    } finally {
+      setEditingSubmitting(false);
+    }
+  };
+
   const getStatusTag = (status) => {
     switch(status) {
       case 'pending':
@@ -332,10 +366,52 @@ const GuidanceAnonymousConsultations = () => {
             reply.isFromCounselor ? (
               <ReplyContainer key={index}>
                 <Text strong>Counselor:</Text>
-                <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                <Text type="secondary">
-                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
-                </Text>
+                {editingReplyIndex === index ? (
+                  <>
+                    <TextArea
+                      value={editReplyContent}
+                      onChange={(e) => setEditReplyContent(e.target.value)}
+                      rows={3}
+                      style={{ marginTop: 8, marginBottom: 8 }}
+                    />
+                    <EditActions>
+                      <Button
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        size="small"
+                        onClick={handleSaveEdit}
+                        loading={editingSubmitting}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        icon={<CloseOutlined />}
+                        size="small"
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                    </EditActions>
+                  </>
+                ) : (
+                  <>
+                    <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary">
+                        {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+                        {reply.edited && ' (edited)'}
+                      </Text>
+                      <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => handleEditReply(index, reply.content)}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </>
+                )}
               </ReplyContainer>
             ) : (
               <StudentReplyContainer key={index}>
@@ -343,6 +419,7 @@ const GuidanceAnonymousConsultations = () => {
                 <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
                 <Text type="secondary">
                   {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+                  {reply.edited && ' (edited)'}
                 </Text>
               </StudentReplyContainer>
             )

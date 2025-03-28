@@ -321,7 +321,6 @@ export const checkUpcomingAppointments = async (appointments, userId) => {
       if (appointmentDateTime > now && appointmentDateTime <= thirtyMinutesFromNow) {
         try {
           await createAppointmentReminderNotification(userId, appointment);
-          
           newNotifiedAppointments.push(appointment.id);
           notificationsCreated = true;
         } catch (notificationError) {
@@ -371,7 +370,6 @@ export const forceCheckUpcomingAppointments = async (studentId) => {
       throw new Error("Student ID is required");
     }
     
-    // Get the user's appointments
     const appointmentsQuery = query(
       collection(db, 'appointments'),
       where("studentId", "==", studentId)
@@ -391,8 +389,6 @@ export const forceCheckUpcomingAppointments = async (studentId) => {
       return false;
     }
     
-    // Check for upcoming appointments
-    // Use studentId as the userId for notifications
     const result = await checkUpcomingAppointments(appointments, studentId);
     return result;
   } catch (error) {

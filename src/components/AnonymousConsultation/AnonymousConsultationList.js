@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { Typography, List, Card, Tag, Empty, Alert, Spin, Button, Input } from 'antd';
-import { SendOutlined } from '@ant-design/icons';
+import { Typography, List, Card, Tag, Empty, Alert, Spin, Button, Input, Space } from 'antd';
+import { SendOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { 
   subscribeToAnonymousPost,
   addStudentReplyToPost,
-  subscribeToUserAnonymousPosts
+  subscribeToUserAnonymousPosts,
+  editReplyInPost
 } from '../../firebase/anonymousPosts';
 import moment from 'moment';
 import { getAuth } from 'firebase/auth';
@@ -126,6 +127,10 @@ const ReplyForm = styled.div`
   padding-top: 16px;
 `;
 
+const EditActions = styled(Space)`
+  margin-top: 8px;
+`;
+
 const AnonymousConsultationList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -133,6 +138,9 @@ const AnonymousConsultationList = () => {
   const [activeConsultation, setActiveConsultation] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [editingReplyIndex, setEditingReplyIndex] = useState(-1);
+  const [editReplyContent, setEditReplyContent] = useState('');
+  const [editingSubmitting, setEditingSubmitting] = useState(false);
   const chatContainerRef = useRef(null);
   const unsubscribeRefs = useRef({});
   const activeConsultationIdRef = useRef(null);
@@ -254,6 +262,32 @@ const AnonymousConsultationList = () => {
     }
   };
 
+  const handleEditReply = (replyIndex, content) => {
+    setEditingReplyIndex(replyIndex);
+    setEditReplyContent(content);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingReplyIndex(-1);
+    setEditReplyContent('');
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editReplyContent.trim() || !activeConsultation) return;
+    
+    try {
+      setEditingSubmitting(true);
+      await editReplyInPost(activeConsultation.id, editingReplyIndex, editReplyContent);
+      setEditingReplyIndex(-1);
+      setEditReplyContent('');
+    } catch (error) {
+      console.error("Error editing reply:", error);
+      setError('Failed to edit your reply. Please try again.');
+    } finally {
+      setEditingSubmitting(false);
+    }
+  };
+
   const getStatusTag = (status) => {
     switch(status) {
       case 'pending':
@@ -345,15 +379,58 @@ const AnonymousConsultationList = () => {
                 <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
                 <Text type="secondary">
                   {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+                  {reply.edited && ' (edited)'}
                 </Text>
               </CounselorReply>
             ) : (
               <UserMessage key={index}>
                 <Text strong>You:</Text>
-                <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                <Text type="secondary">
-                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
-                </Text>
+                {editingReplyIndex === index ? (
+                  <>
+                    <TextArea
+                      value={editReplyContent}
+                      onChange={(e) => setEditReplyContent(e.target.value)}
+                      rows={3}
+                      style={{ marginTop: 8, marginBottom: 8 }}
+                    />
+                    <EditActions>
+                      <Button
+                        type="primary"
+                        icon={<SaveOutlined />}
+                        size="small"
+                        onClick={handleSaveEdit}
+                        loading={editingSubmitting}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        icon={<CloseOutlined />}
+                        size="small"
+                        onClick={handleCancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                    </EditActions>
+                  </>
+                ) : (
+                  <>
+                    <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text type="secondary">
+                        {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+                        {reply.edited && ' (edited)'}
+                      </Text>
+                      <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        size="small"
+                        onClick={() => handleEditReply(index, reply.content)}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </>
+                )}
               </UserMessage>
             )
           ))}

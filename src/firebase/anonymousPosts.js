@@ -406,3 +406,44 @@ export const subscribeToAnonymousPost = (postId, callback) => {
     return null;
   }
 };
+
+/**
+ * Edit a reply in an anonymous post
+ * @param {string} postId - The post ID
+ * @param {number} replyIndex - The index of the reply to edit
+ * @param {string} newContent - The new content for the reply
+ * @returns {Promise<void>}
+ */
+export const editReplyInPost = async (postId, replyIndex, newContent) => {
+  try {
+    const postRef = doc(db, 'anonymousPosts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (!postDoc.exists()) {
+      throw new Error("Post not found");
+    }
+    
+    const postData = postDoc.data();
+    const replies = postData.replies || [];
+    
+    if (replyIndex < 0 || replyIndex >= replies.length) {
+      throw new Error("Reply not found");
+    }
+    
+    // Create a new replies array with the updated content
+    const updatedReplies = [...replies];
+    updatedReplies[replyIndex] = {
+      ...updatedReplies[replyIndex],
+      content: newContent,
+      edited: true,
+      editedAt: Timestamp.now()
+    };
+    
+    await updateDoc(postRef, {
+      replies: updatedReplies
+    });
+  } catch (error) {
+    console.error("Error editing reply:", error);
+    throw error;
+  }
+};
