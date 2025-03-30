@@ -166,6 +166,10 @@ const LoginPage = () => {
             />
           </Form.Item>
           
+          <div style={{ textAlign: 'right', marginBottom: '16px' }}>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
+          
           <Form.Item>
             <SubmitButton type="primary" htmlType="submit" size="large" loading={loading}>
               Log In

@@ -28,6 +28,7 @@ import GuidanceNewsFeed from './pages/guidance/GuidanceNewsFeed';
 // Auth Pages
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
+import ForgotPasswordPage from './pages/ForgotPassword';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
               {/* Auth Routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               
               {/* Student Routes - Protected with role requirement */}
               <Route element={<PrivateRoute requiredRole="student" />}>

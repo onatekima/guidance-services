@@ -1,7 +1,8 @@
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
-  signOut 
+  signOut,
+  sendPasswordResetEmail as firebaseSendPasswordResetEmail 
 } from "firebase/auth";
 import { doc, setDoc, query, where, collection, getDocs } from "firebase/firestore";
 import { auth, db } from "./config";
@@ -160,5 +161,23 @@ export const createGuidanceCounselor = async (counselorData) => {
   } catch (error) {
     console.error("Create guidance counselor error:", error);
     throw error;
+  }
+};
+
+// Send password reset email
+export const sendPasswordResetEmail = async (email) => {
+  try {
+    await firebaseSendPasswordResetEmail(auth, email);
+    return true;
+  } catch (error) {
+    console.error("Password reset error:", error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new Error('No account found with this email address');
+    } else if (error.code === 'auth/invalid-email') {
+      throw new Error('Invalid email address format');
+    } else {
+      throw new Error('Failed to send password reset email. Please try again.');
+    }
   }
 };
