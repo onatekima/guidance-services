@@ -241,14 +241,16 @@ const AppointmentForm = () => {
       >
         <Form.Item
           name="counselorType"
-          label="Counselor Type"
-          rules={[{ required: true, message: 'Please select a counselor type' }]}
+          label="Counselling Type"
+          rules={[{ required: true, message: 'Please select a counselling type' }]}
         >
-          <Select placeholder="Select counselor type">
-            <Option value="academic">Academic Counselor</Option>
-            <Option value="career">Career Counselor</Option>
-            <Option value="mental_health">Mental Health Counselor</Option>
-            <Option value="general">General Guidance Counselor</Option>
+          <Select placeholder="Select counselling type">
+            <Option value="career">Career</Option>
+            <Option value="academic">Academic</Option>
+            <Option value="mental_health">Mental Health</Option>
+            <Option value="family">Family</Option>
+            <Option value="crisis">Crisis</Option>
+            <Option value="gender_sexuality">Gender and Sexuality</Option>
           </Select>
         </Form.Item>
 
@@ -306,12 +308,11 @@ const AppointmentForm = () => {
 
         <Form.Item
           name="purpose"
-          label="Purpose of Appointment"
-          rules={[{ required: true, message: 'Please describe the purpose of your appointment' }]}
+          label="Additional Information"
         >
           <TextArea 
             rows={4} 
-            placeholder="Briefly describe the reason for your appointment"
+            placeholder="Additional information/request"
           />
         </Form.Item>
 

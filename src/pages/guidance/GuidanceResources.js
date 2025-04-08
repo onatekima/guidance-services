@@ -294,6 +294,9 @@ const GuidanceResources = () => {
       mental_health: 'Mental Health',
       academic: 'Academic',
       career: 'Career',
+      family: 'Family',
+      crisis: 'Crisis',
+      gender_sexuality: 'Gender and Sexuality',
       relationships: 'Relationships',
       stress: 'Stress',
       anxiety: 'Anxiety',
@@ -434,6 +437,9 @@ const GuidanceResources = () => {
               <Option value="mental_health">Mental Health</Option>
               <Option value="academic">Academic</Option>
               <Option value="career">Career</Option>
+              <Option value="family">Family</Option>
+              <Option value="crisis">Crisis</Option>
+              <Option value="gender_sexuality">Gender and Sexuality</Option>
               <Option value="relationships">Relationships</Option>
               <Option value="stress">Stress</Option>
               <Option value="anxiety">Anxiety</Option>

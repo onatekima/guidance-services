@@ -205,13 +205,17 @@ export const getFormattedAppointmentDetails = (appointment) => {
 export const getCounselorTypeLabel = (type) => {
   switch(type) {
     case 'academic':
-      return 'Academic Counselor';
+      return 'Academic Counselling';
     case 'career':
-      return 'Career Counselor';
+      return 'Career Counselling';
     case 'mental_health':
-      return 'Mental Health Counselor';
-    case 'general':
-      return 'General Guidance Counselor';
+      return 'Mental Health Counselling';
+    case 'family':
+      return 'Family Counselling';
+    case 'crisis':
+      return 'Crisis Counselling';
+    case 'gender_sexuality':
+      return 'Gender and Sexuality Counselling';
     default:
       return type || 'Unknown';
   }

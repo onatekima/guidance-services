@@ -139,6 +139,11 @@ const MoodTracker = ({ currentUser }) => {
       return;
     }
 
+    if (currentMood.length > 60) {
+      message.warning('Mood text cannot exceed 60 characters');
+      return;
+    }
+
     try {
       setLoading(true);
       const userProfile = await getUserProfile(currentUser.uid);
@@ -217,10 +222,16 @@ const MoodTracker = ({ currentUser }) => {
         confirmLoading={loading}
       >
         <MoodInput
-          placeholder="Express your mood..."
+          placeholder="Express your mood... (max 60 characters)"
           value={currentMood}
-          onChange={(e) => setCurrentMood(e.target.value)}
+          onChange={(e) => {
+            if (e.target.value.length <= 60) {
+              setCurrentMood(e.target.value);
+            }
+          }}
           prefix={selectedEmoji?.emoji}
+          suffix={`${currentMood.length}/60`}
+          maxLength={60}
         />
         
         <EmojiPickerContainer>

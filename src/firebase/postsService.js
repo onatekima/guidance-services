@@ -11,7 +11,9 @@ import {
   orderBy,
   serverTimestamp,
   onSnapshot,
-  getDoc
+  getDoc,
+  startAfter,
+  limit,
 } from 'firebase/firestore';
 import { uploadImage } from './resourcesService';
 
@@ -32,12 +34,13 @@ export const getUserProfile = async (userId) => {
   }
 };
 
-// Get all posts
-export const subscribeToPosts = (callback) => {
+// Get all posts with pagination
+export const subscribeToPosts = (callback, limitNum = 20) => {
   try {
     const postsQuery = query(
       collection(db, POSTS_COLLECTION),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitNum)
     );
     
     return onSnapshot(postsQuery, (snapshot) => {
@@ -53,13 +56,41 @@ export const subscribeToPosts = (callback) => {
   }
 };
 
-// Get user's posts
-export const subscribeToUserPosts = (userId, callback) => {
+// Get more posts with pagination
+export const getMorePosts = async (lastVisible, limitNum = 20) => {
+  try {
+    const postsQuery = query(
+      collection(db, POSTS_COLLECTION),
+      orderBy('createdAt', 'desc'),
+      startAfter(lastVisible),
+      limit(limitNum)
+    );
+    
+    const snapshot = await getDocs(postsQuery);
+    const posts = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    return {
+      posts,
+      lastVisible: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === limit
+    };
+  } catch (error) {
+    console.error("Error getting more posts: ", error);
+    throw error;
+  }
+};
+
+// Get user's posts with pagination
+export const subscribeToUserPosts = (userId, callback, limitNum = 20) => {
   try {
     const postsQuery = query(
       collection(db, POSTS_COLLECTION),
       where('authorId', '==', userId),
-      orderBy('createdAt', 'desc')
+      orderBy('createdAt', 'desc'),
+      limit(limitNum)
     );
     
     return onSnapshot(postsQuery, (snapshot) => {
@@ -71,6 +102,34 @@ export const subscribeToUserPosts = (userId, callback) => {
     });
   } catch (error) {
     console.error("Error subscribing to user posts: ", error);
+    throw error;
+  }
+};
+
+// Get more user posts with pagination
+export const getMoreUserPosts = async (userId, lastVisible, limitNum = 20) => {
+  try {
+    const postsQuery = query(
+      collection(db, POSTS_COLLECTION),
+      where('authorId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      startAfter(lastVisible),
+      limit(limitNum)
+    );
+    
+    const snapshot = await getDocs(postsQuery);
+    const posts = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    return {
+      posts,
+      lastVisible: snapshot.docs[snapshot.docs.length - 1] || null,
+      hasMore: snapshot.docs.length === limit
+    };
+  } catch (error) {
+    console.error("Error getting more user posts: ", error);
     throw error;
   }
 };

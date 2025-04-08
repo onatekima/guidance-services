@@ -1,9 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { Typography, Card, Avatar, Button, Input, Upload, message, Tabs, Modal, Space, Spin, Drawer, Tag } from 'antd';
 import { UserOutlined, PictureOutlined, SendOutlined, EditOutlined, DeleteOutlined, MenuOutlined } from '@ant-design/icons';
 import { getAuth } from 'firebase/auth';
-import { subscribeToPosts, subscribeToUserPosts, addPost, updatePost, deletePost, getUserProfile } from '../firebase/postsService';
+import { 
+  subscribeToPosts, 
+  subscribeToUserPosts, 
+  addPost, 
+  updatePost, 
+  deletePost, 
+  getUserProfile,
+  getMorePosts,
+  getMoreUserPosts
+} from '../firebase/postsService';
 import moment from 'moment';
 import MoodTracker from '../components/MoodTracker/MoodTracker';
 
@@ -13,8 +22,7 @@ const { TabPane } = Tabs;
 
 const PageContainer = styled.div`
   width: 100%;
-  max-width: 800px;
-  margin: 0 auto;
+  padding: 16px;
 `;
 
 const PageTitle = styled(Title)`
@@ -31,7 +39,7 @@ const CreatePostCard = styled(Card)`
 
 const PostImage = styled.img`
   width: 100%;
-  max-height: 400px;
+  max-width: 400px;
   object-fit: cover;
   border-radius: 8px;
   margin: 16px 0;
@@ -65,10 +73,8 @@ const ActionButton = styled(Button)`
 
 const FeedLayout = styled.div`
   display: grid;
-  grid-template-columns: 1fr 350px;
+  grid-template-columns: 70% 30%;
   gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
   
   @media (max-width: ${props => props.theme.breakpoints.lg}) {
     grid-template-columns: 1fr;
@@ -82,7 +88,8 @@ const FeedContainer = styled.div`
 const MoodTrackerContainer = styled.div`
   position: sticky;
   top: 24px;
-  height: fit-content;
+  height: calc(100vh - 48px);
+  overflow-y: auto;
   
   @media (max-width: ${props => props.theme.breakpoints.lg}) {
     display: none;
@@ -94,8 +101,8 @@ const MobileActionButton = styled(Button)`
   bottom: 20px;
   right: 20px;
   z-index: 100;
-  width: 50px;
-  height: 50px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   display: none;
@@ -112,9 +119,82 @@ const GuidancePostCard = styled(PostCard)`
   background-color: rgba(24, 144, 255, 0.05);
 `;
 
+const LoadMoreContainer = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+`;
+
+const Post = ({ post, currentUser, onEdit, onDelete }) => {
+  const [expanded, setExpanded] = useState(false);
+  const isGuidancePost = post.userRole === 'guidance';
+  const PostCardComponent = isGuidancePost ? GuidancePostCard : PostCard;
+  const contentIsTruncated = post.content && post.content.length > 300;
+  
+  return (
+    <PostCardComponent 
+      key={post.id}
+      actions={post.authorId === currentUser.uid ? [
+        <ActionButton 
+          type="text" 
+          icon={<EditOutlined />}
+          onClick={() => onEdit(post)}
+        >
+          Edit
+        </ActionButton>,
+        <ActionButton 
+          type="text" 
+          danger 
+          icon={<DeleteOutlined />}
+          onClick={() => onDelete(post.id)}
+        >
+          Delete
+        </ActionButton>
+      ] : undefined}
+    >
+      <PostHeader>
+        <Avatar size={40} icon={<UserOutlined />} />
+        <PostAuthor>
+          <Text strong>
+            {post.authorName}
+            {isGuidancePost && (
+              <Tag color="blue" style={{ marginLeft: 8 }}>
+                Guidance Counselor
+              </Tag>
+            )}
+          </Text>
+          <br />
+          <PostTime>
+            {moment(post.createdAt?.toDate()).fromNow()}
+          </PostTime>
+        </PostAuthor>
+      </PostHeader>
+      
+      <Paragraph>
+        {expanded || !contentIsTruncated 
+          ? post.content 
+          : `${post.content.substring(0, 300)}...`}
+        &nbsp;
+        {contentIsTruncated && (
+          <Button 
+            type="link" 
+            onClick={() => setExpanded(!expanded)} 
+            style={{ padding: 0, marginBottom: 16 }}
+          >
+            {expanded ? 'See Less' : 'See More'}
+          </Button>
+        )}
+      </Paragraph>
+      
+      {post.imageUrl && <PostImage src={post.imageUrl} alt="Post image" />}
+    </PostCardComponent>
+  );
+};
+
 const NewsFeedPage = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [postText, setPostText] = useState('');
   const [fileList, setFileList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -122,9 +202,15 @@ const NewsFeedPage = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [userProfile, setUserProfile] = useState(null);
   const [moodDrawerVisible, setMoodDrawerVisible] = useState(false);
+  const [lastVisible, setLastVisible] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  
+  const postsEndRef = useRef(null);
+  const observerRef = useRef(null);
   
   const auth = getAuth();
   const currentUser = auth.currentUser;
+  const POSTS_PER_PAGE = 20;
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -142,16 +228,29 @@ const NewsFeedPage = () => {
   useEffect(() => {
     let unsubscribe;
     
+    setPosts([]);
+    setLoading(true);
+    setLastVisible(null);
+    setHasMore(true);
+    
     if (activeTab === 'all') {
       unsubscribe = subscribeToPosts((newPosts) => {
         setPosts(newPosts);
         setLoading(false);
-      });
+        if (newPosts.length > 0) {
+          setLastVisible(newPosts[newPosts.length - 1].createdAt);
+        }
+        setHasMore(newPosts.length === POSTS_PER_PAGE);
+      }, POSTS_PER_PAGE);
     } else {
       unsubscribe = subscribeToUserPosts(currentUser.uid, (newPosts) => {
         setPosts(newPosts);
         setLoading(false);
-      });
+        if (newPosts.length > 0) {
+          setLastVisible(newPosts[newPosts.length - 1].createdAt);
+        }
+        setHasMore(newPosts.length === POSTS_PER_PAGE);
+      }, POSTS_PER_PAGE);
     }
     
     return () => {
@@ -160,6 +259,44 @@ const NewsFeedPage = () => {
       }
     };
   }, [activeTab, currentUser.uid]);
+
+  const lastPostElementRef = useCallback(node => {
+    if (loading || loadingMore) return;
+    
+    if (observerRef.current) observerRef.current.disconnect();
+    
+    observerRef.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        loadMorePosts();
+      }
+    });
+    
+    if (node) observerRef.current.observe(node);
+  }, [loading, loadingMore, hasMore]);
+
+  const loadMorePosts = async () => {
+    if (!lastVisible || !hasMore || loadingMore) return;
+    
+    try {
+      setLoadingMore(true);
+      
+      let result;
+      if (activeTab === 'all') {
+        result = await getMorePosts(lastVisible, POSTS_PER_PAGE);
+      } else {
+        result = await getMoreUserPosts(currentUser.uid, lastVisible, POSTS_PER_PAGE);
+      }
+      
+      setPosts(prevPosts => [...prevPosts, ...result.posts]);
+      setLastVisible(result.lastVisible);
+      setHasMore(result.hasMore);
+    } catch (error) {
+      console.error("Error loading more posts:", error);
+      message.error("Failed to load more posts");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handlePostSubmit = async () => {
     if (!postText.trim() && fileList.length === 0) {
@@ -274,56 +411,6 @@ const NewsFeedPage = () => {
     fileList,
   };
 
-  const renderPost = (post) => {
-    const isGuidancePost = post.userRole === 'guidance';
-    const PostCardComponent = isGuidancePost ? GuidancePostCard : PostCard;
-    
-    return (
-      <PostCardComponent 
-        key={post.id}
-        actions={post.authorId === currentUser.uid ? [
-          <ActionButton 
-            type="text" 
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(post)}
-          >
-            Edit
-          </ActionButton>,
-          <ActionButton 
-            type="text" 
-            danger 
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(post.id)}
-          >
-            Delete
-          </ActionButton>
-        ] : undefined}
-      >
-        <PostHeader>
-          <Avatar size={40} icon={<UserOutlined />} />
-          <PostAuthor>
-            <Text strong>
-              {post.authorName}
-              {isGuidancePost && (
-                <Tag color="blue" style={{ marginLeft: 8 }}>
-                  Guidance Counselor
-                </Tag>
-              )}
-            </Text>
-            <br />
-            <PostTime>
-              {moment(post.createdAt?.toDate()).fromNow()}
-            </PostTime>
-          </PostAuthor>
-        </PostHeader>
-        
-        <Paragraph>{post.content}</Paragraph>
-        
-        {post.imageUrl && <PostImage src={post.imageUrl} alt="Post image" />}
-      </PostCardComponent>
-    );
-  };
-
   const handleEdit = (post) => {
     setEditingPost(post);
     
@@ -388,7 +475,44 @@ const NewsFeedPage = () => {
                   <Spin size="large" />
                 </LoadingContainer>
               ) : (
-                posts.map(post => renderPost(post))
+                <>
+                  {posts.map((post, index) => {
+                    if (posts.length === index + 1) {
+                      return (
+                        <div ref={lastPostElementRef} key={post.id}>
+                          <Post 
+                            post={post}
+                            currentUser={currentUser}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                          />
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <Post 
+                          key={post.id}
+                          post={post}
+                          currentUser={currentUser}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
+                  })}
+                  
+                  {loadingMore && (
+                    <LoadMoreContainer>
+                      <Spin size="default" />
+                    </LoadMoreContainer>
+                  )}
+                  
+                  {!hasMore && posts.length > 0 && (
+                    <LoadMoreContainer>
+                      <Text type="secondary">No more posts to load</Text>
+                    </LoadMoreContainer>
+                  )}
+                </>
               )}
             </TabPane>
             <TabPane tab="My Posts" key="my">
@@ -397,7 +521,44 @@ const NewsFeedPage = () => {
                   <Spin size="large" />
                 </LoadingContainer>
               ) : (
-                posts.map(post => renderPost(post))
+                <>
+                  {posts.map((post, index) => {
+                    if (posts.length === index + 1) {
+                      return (
+                        <div ref={lastPostElementRef} key={post.id}>
+                          <Post 
+                            post={post}
+                            currentUser={currentUser}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                          />
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <Post 
+                          key={post.id}
+                          post={post}
+                          currentUser={currentUser}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                        />
+                      );
+                    }
+                  })}
+                  
+                  {loadingMore && (
+                    <LoadMoreContainer>
+                      <Spin size="default" />
+                    </LoadMoreContainer>
+                  )}
+                  
+                  {!hasMore && posts.length > 0 && (
+                    <LoadMoreContainer>
+                      <Text type="secondary">No more posts to load</Text>
+                    </LoadMoreContainer>
+                  )}
+                </>
               )}
             </TabPane>
           </Tabs>
