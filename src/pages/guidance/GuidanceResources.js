@@ -13,7 +13,8 @@ import {
   message,
   Spin,
   Popconfirm,
-  Image
+  Image,
+  Tabs
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -30,10 +31,12 @@ import {
   updateResource, 
   deleteResource 
 } from '../../firebase/resourcesService';
+import GuidanceDirectory from './GuidanceDirectory';
 
 const { Title } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
+const { TabPane } = Tabs;
 
 const PageContainer = styled.div`
   width: 100%;
@@ -80,10 +83,13 @@ const GuidanceResources = () => {
   const [imageFileList, setImageFileList] = useState([]);
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadedImageName, setUploadedImageName] = useState('');
+  const [activeTab, setActiveTab] = useState('resources');
 
   useEffect(() => {
-    fetchResources();
-  }, []);
+    if (activeTab === 'resources') {
+      fetchResources();
+    }
+  }, [activeTab]);
 
   const fetchResources = async () => {
     try {
@@ -391,23 +397,30 @@ const GuidanceResources = () => {
     <PageContainer>
       <PageTitle level={2}>Manage Resources</PageTitle>
       
-      <ActionBar>
-        <Button 
-          type="primary" 
-          icon={<PlusOutlined />}
-          onClick={handleAdd}
-        >
-          Add Resource
-        </Button>
-      </ActionBar>
-      
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <Spin size="large" />
-        </div>
-      ) : (
-        <Table columns={columns} dataSource={resources} rowKey="id" />
-      )}
+      <Tabs activeKey={activeTab} onChange={setActiveTab}>
+        <TabPane tab="Resources" key="resources">
+          <ActionBar>
+            <Button 
+              type="primary" 
+              icon={<PlusOutlined />}
+              onClick={handleAdd}
+            >
+              Add Resource
+            </Button>
+          </ActionBar>
+          
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: '50px' }}>
+              <Spin size="large" />
+            </div>
+          ) : (
+            <Table columns={columns} dataSource={resources} rowKey="id" />
+          )}
+        </TabPane>
+        <TabPane tab="Directory" key="directory">
+          <GuidanceDirectory />
+        </TabPane>
+      </Tabs>
       
       <Modal
         title={editingResource ? "Edit Resource" : "Add New Resource"}
