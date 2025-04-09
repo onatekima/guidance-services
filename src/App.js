@@ -19,6 +19,7 @@ import NewsFeed from './pages/NewsFeed';
 import Settings from './pages/Settings';
 
 // Guidance Pages
+import GuidanceDashboard from './pages/guidance/GuidanceDashboard';
 import GuidanceAppointments from './pages/guidance/GuidanceAppointments';
 import GuidanceAnonymousConsultations from './pages/guidance/GuidanceAnonymousConsultations';
 import GuidanceResources from './pages/guidance/GuidanceResources';
@@ -57,7 +58,8 @@ function App() {
               {/* Guidance Routes - Protected with role requirement */}
               <Route element={<PrivateRoute requiredRole="guidance" />}>
                 <Route element={<GuidanceDashboardLayout />}>
-                  <Route path="/guidance" element={<GuidanceNewsFeed />} />
+                  <Route path="/guidance" element={<GuidanceDashboard />} />
+                  <Route path="/guidance/news-feed" element={<GuidanceNewsFeed />} />
                   <Route path="/guidance/appointments" element={<GuidanceAppointments />} />
                   <Route path="/guidance/anonymous-consultations" element={<GuidanceAnonymousConsultations />} />
                   <Route path="/guidance/resources" element={<GuidanceResources />} />

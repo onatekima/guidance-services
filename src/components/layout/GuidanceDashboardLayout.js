@@ -100,7 +100,7 @@ const Logo = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #001529;
+  background: #1677ff;
   margin-bottom: 1px;
 `;
 
@@ -242,22 +242,11 @@ const GuidanceDashboardLayout = () => {
     return nameParts[0][0].toUpperCase();
   };
   
-  const getSelectedKey = () => {
-    const path = location.pathname;
-    if (path === '/guidance') return '1';
-    if (path.includes('appointments')) return '2';
-    if (path.includes('anonymous-consultations')) return '3';
-    if (path.includes('resources')) return '4';
-    if (path.includes('feedback')) return '5';
-    if (path.includes('news-feed')) return '6';
-    return '1';
-  };
-
   const menuItems = [
     {
       key: '1',
-      icon: <MessageOutlined />,
-      label: 'News Feed',
+      icon: <DashboardOutlined />,
+      label: 'Dashboard',
       onClick: () => {
         navigate('/guidance');
         if (mobileView) setMobileDrawerVisible(false);
@@ -299,7 +288,27 @@ const GuidanceDashboardLayout = () => {
         if (mobileView) setMobileDrawerVisible(false);
       }
     },
+    {
+      key: '6',
+      icon: <MessageOutlined />,
+      label: 'News Feed',
+      onClick: () => {
+        navigate('/guidance/news-feed');
+        if (mobileView) setMobileDrawerVisible(false);
+      }
+    },
   ];
+
+  const getSelectedKey = () => {
+    const path = location.pathname;
+    if (path === '/guidance') return '1';
+    if (path.includes('appointments')) return '2';
+    if (path.includes('anonymous-consultations')) return '3';
+    if (path.includes('resources')) return '4';
+    if (path.includes('feedback')) return '5';
+    if (path.includes('news-feed')) return '6';
+    return '1';
+  };
 
   const renderSidebar = () => (
     <StyledMenu
@@ -355,8 +364,8 @@ const GuidanceDashboardLayout = () => {
           collapsedWidth={COLLAPSED_WIDTH}
         >
           <Logo>
-            {!collapsed && 'Guidance Dashboard'}
-            {collapsed && 'GD'}
+            {!collapsed && 'GUIDANCE SERVICES'}
+            {collapsed && 'GS'}
           </Logo>
           {renderSidebar()}
         </StyledSider>
@@ -369,7 +378,7 @@ const GuidanceDashboardLayout = () => {
           bodyStyle={{ padding: 0, background: '#f9f9f9', height: '100%' }}
           width={SIDEBAR_WIDTH}
         >
-          <Logo>Guidance Dashboard</Logo>
+          <Logo>GUIDANCE SERVICES</Logo>
           {renderSidebar()}
         </Drawer>
       )}
@@ -396,7 +405,7 @@ const GuidanceDashboardLayout = () => {
           <HeaderRight>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <UserInfo>
-                <Avatar style={{ backgroundColor: '#1890ff' }}>
+                <Avatar style={{ backgroundColor: '#1677ff' }}>
                   {currentUser?.photoURL ? null : getUserInitials()}
                 </Avatar>
               </UserInfo>

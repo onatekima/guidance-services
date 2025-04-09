@@ -122,7 +122,7 @@ const LoginPage = () => {
     <LoginContainer>
       <LoginCard>
         <LogoContainer>
-          <Logo>Mental Health App</Logo>
+          <Logo>GUIDANCE SERVICES</Logo>
           <Text>Student Support Platform</Text>
         </LogoContainer>
         

@@ -1,6 +1,6 @@
 const theme = {
   colors: {
-    primary: "#1890ff", // Ant Design primary blue
+    primary: "#1677ff", // Ant Design primary blue
     secondary: "#52c41a",
     accent: "#faad14",
     danger: "#f5222d",

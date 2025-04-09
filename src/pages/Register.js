@@ -80,7 +80,7 @@ const RegisterPage = () => {
     <RegisterContainer>
       <RegisterCard>
         <LogoContainer>
-          <Logo>Mental Health App</Logo>
+          <Logo>GUIDANCE SERVICES</Logo>
           <Text>Student Support Platform</Text>
         </LogoContainer>
         
