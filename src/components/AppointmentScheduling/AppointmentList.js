@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { List, Tag, Button, Empty, Modal, message, Spin, Alert } from 'antd';
-import { CalendarOutlined, ClockCircleOutlined, UserOutlined, EyeOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { List, Tag, Button, Empty, Modal, message, Spin, Alert, Input, Form } from 'antd';
+import { CalendarOutlined, ClockCircleOutlined, UserOutlined, EyeOutlined, CloseOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import moment from 'moment';
-import { getCounselorTypeLabel, updateAppointmentStatus } from '../../firebase/appointments';
+import { getCounselorTypeLabel, updateAppointmentStatus, acknowledgeAppointmentCancellation } from '../../firebase/appointments';
+import { acknowledgeNotification } from '../../firebase/notifications';
 
 const ListContainer = styled.div`
   margin-top: 16px;
@@ -48,6 +49,10 @@ const LoadingContainer = styled.div`
   padding: 40px;
 `;
 
+const AcknowledgeButton = styled(Button)`
+  margin-top: 16px;
+`;
+
 const AppointmentList = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -57,9 +62,12 @@ const AppointmentList = () => {
   const [selectedAppointment, setSelectedAppointment] = useState(null);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
-  
+  const [acknowledgeModalVisible, setAcknowledgeModalVisible] = useState(false);
+  const [appointmentToAcknowledge, setAppointmentToAcknowledge] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState('');
+
   const auth = useAuth();
-  
+
   useEffect(() => {
     fetchAppointments();
   }, []);
@@ -109,6 +117,7 @@ const AppointmentList = () => {
     const appointment = appointments.find(app => app.id === appointmentId);
     if (appointment) {
       setAppointmentToCancel(appointment);
+      setCancellationReason('');
       setCancelModalVisible(true);
     }
   };
@@ -116,18 +125,30 @@ const AppointmentList = () => {
   const handleCancelModalClose = () => {
     setCancelModalVisible(false);
     setAppointmentToCancel(null);
+    setCancellationReason('');
   };
 
   const handleCancelAppointment = async () => {
     if (!appointmentToCancel) return;
     
+    if (!cancellationReason.trim()) {
+      message.error('Please provide a reason for cancellation');
+      return;
+    }
+    
     try {
       setActionLoading(true);
       
-      await updateAppointmentStatus(appointmentToCancel.id, 'cancelled');
+      await updateAppointmentStatus(appointmentToCancel.id, 'cancelled', cancellationReason);
       
       setAppointments(appointments.map(app => 
-        app.id === appointmentToCancel.id ? { ...app, status: 'cancelled' } : app
+        app.id === appointmentToCancel.id ? { 
+          ...app, 
+          status: 'cancelled',
+          cancellationReason,
+          cancellationBy: 'student',
+          acknowledged: false
+        } : app
       ));
       
       message.success('Appointment cancelled successfully');
@@ -144,6 +165,66 @@ const AppointmentList = () => {
     } finally {
       setActionLoading(false);
       setAppointmentToCancel(null);
+      setCancellationReason('');
+    }
+  };
+
+  const showAcknowledgeModal = (appointmentId) => {
+    const appointment = appointments.find(app => app.id === appointmentId);
+    if (appointment) {
+      setAppointmentToAcknowledge(appointment);
+      setAcknowledgeModalVisible(true);
+    }
+  };
+
+  const handleAcknowledgeModalClose = () => {
+    setAcknowledgeModalVisible(false);
+    setAppointmentToAcknowledge(null);
+  };
+
+  const handleAcknowledgeCancellation = async () => {
+    if (!appointmentToAcknowledge) return;
+    
+    try {
+      setActionLoading(true);
+      
+      await acknowledgeAppointmentCancellation(appointmentToAcknowledge.id);
+      
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('appointmentId', '==', appointmentToAcknowledge.id),
+        where('type', '==', 'appointment_status')
+      );
+      
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      if (!notificationsSnapshot.empty) {
+        const notificationDoc = notificationsSnapshot.docs[0];
+        await acknowledgeNotification(notificationDoc.id);
+      }
+      
+      setAppointments(appointments.map(app => 
+        app.id === appointmentToAcknowledge.id ? { 
+          ...app, 
+          acknowledged: true
+        } : app
+      ));
+      
+      message.success('Cancellation acknowledged');
+      
+      setAcknowledgeModalVisible(false);
+      
+      if (selectedAppointment && selectedAppointment.id === appointmentToAcknowledge.id) {
+        setSelectedAppointment({
+          ...selectedAppointment,
+          acknowledged: true
+        });
+      }
+    } catch (error) {
+      console.error("Error acknowledging cancellation:", error);
+      message.error('Failed to acknowledge cancellation');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToAcknowledge(null);
     }
   };
 
@@ -230,6 +311,15 @@ const AppointmentList = () => {
                   onClick={() => showCancelConfirmation(item.id)}
                 >
                   Cancel
+                </Button>,
+                (item.status === 'cancelled' && item.cancellationBy === 'guidance' && !item.acknowledged) &&
+                <Button
+                  key="acknowledge"
+                  type="link"
+                  icon={<CheckCircleOutlined />}
+                  onClick={() => showAcknowledgeModal(item.id)}
+                >
+                  Acknowledge
                 </Button>
               ].filter(Boolean)}
             >
@@ -249,7 +339,12 @@ const AppointmentList = () => {
                       <ClockCircleOutlined /> {item.timeSlot}
                     </MetaItem>
                   </AppointmentMeta>
-                  <div>{item.purpose.length > 100 ? `${item.purpose.substring(0, 100)}...` : item.purpose}</div></>
+                  <div>{item.purpose.length > 100 ? `${item.purpose.substring(0, 100)}...` : item.purpose}</div>
+                  {item.cancellationReason && (
+                    <div style={{ marginTop: '8px', color: '#ff4d4f' }}>
+                      <strong>Cancellation Reason:</strong> {item.cancellationReason}
+                    </div>
+                  )}</>
                 }
               />
             </AppointmentItem>
@@ -281,6 +376,20 @@ const AppointmentList = () => {
               }}
             >
               Cancel Appointment
+            </Button>
+          ),
+          (selectedAppointment?.status === 'cancelled' && 
+           selectedAppointment?.cancellationBy === 'guidance' && 
+           !selectedAppointment?.acknowledged) && (
+            <Button 
+              key="acknowledge" 
+              type="primary"
+              onClick={() => {
+                handleCloseDetailsModal();
+                showAcknowledgeModal(selectedAppointment.id);
+              }}
+            >
+              Acknowledge Cancellation
             </Button>
           )
         ].filter(Boolean)}
@@ -356,6 +465,63 @@ const AppointmentList = () => {
             <p style={{ margin: '4px 0' }}><strong>Time:</strong> {appointmentToCancel.timeSlot}</p>
             <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToCancel.counselorType)}</p>
           </div>
+        )}
+        
+        <div style={{ marginTop: '16px' }}>
+          <Form.Item
+            label="Reason for Cancellation"
+            required
+            help="Please provide a reason for cancellation"
+          >
+            <Input.TextArea 
+              rows={3} 
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Please provide a reason for cancellation"
+            />
+          </Form.Item>
+        </div>
+      </Modal>
+
+      <Modal
+        title="Acknowledge Cancellation"
+        open={acknowledgeModalVisible}
+        onCancel={handleAcknowledgeModalClose}
+        footer={[
+          <Button key="close" onClick={handleAcknowledgeModalClose}>
+            Close
+          </Button>,
+          <Button
+            key="acknowledge"
+            type="primary"
+            loading={actionLoading}
+            onClick={handleAcknowledgeCancellation}
+          >
+            Acknowledge Cancellation
+          </Button>,
+        ]}
+      >
+        {appointmentToAcknowledge && (
+          <>
+            <p>Your appointment has been cancelled by the guidance counselor. Please acknowledge that you have read the cancellation reason.</p>
+            
+            <div style={{ marginTop: '16px', background: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
+              <p style={{ margin: '4px 0' }}><strong>Date:</strong> {appointmentToAcknowledge.date}</p>
+              <p style={{ margin: '4px 0' }}><strong>Time:</strong> {appointmentToAcknowledge.timeSlot}</p>
+              <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToAcknowledge.counselorType)}</p>
+              <p style={{ margin: '4px 0', color: '#ff4d4f' }}><strong>Cancellation Reason:</strong> {appointmentToAcknowledge.cancellationReason}</p>
+            </div>
+            
+            <AcknowledgeButton 
+              type="primary" 
+              block
+              icon={<CheckCircleOutlined />}
+              onClick={handleAcknowledgeCancellation}
+              loading={actionLoading}
+            >
+              I Acknowledge This Cancellation
+            </AcknowledgeButton>
+          </>
         )}
       </Modal>
     </ListContainer>

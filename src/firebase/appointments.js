@@ -221,7 +221,7 @@ export const getCounselorTypeLabel = (type) => {
   }
 };
 
-export const updateAppointmentStatus = async (appointmentId, status) => {
+export const updateAppointmentStatus = async (appointmentId, status, reason = null) => {
   try {
     const appointmentRef = doc(db, "appointments", appointmentId);
     
@@ -235,17 +235,26 @@ export const updateAppointmentStatus = async (appointmentId, status) => {
       ...appointmentDoc.data()
     };
     
-    await updateDoc(appointmentRef, {
+    const updateData = {
       status: status,
       updatedAt: Timestamp.now()
-    });
+    };
+    
+    if (reason) {
+      updateData.cancellationReason = reason;
+      updateData.cancellationBy = appointmentData.studentId === 'guidance' ? 'guidance' : 'student';
+      updateData.acknowledged = false;
+    }
+    
+    await updateDoc(appointmentRef, updateData);
     
     if (appointmentData.studentId) {
       try {
         await createAppointmentStatusNotification(
           appointmentData.studentId,
           appointmentData,
-          status
+          status,
+          reason
         );
       } catch (notificationError) {
         console.error("Error creating notification:", notificationError);
@@ -397,6 +406,22 @@ export const forceCheckUpcomingAppointments = async (studentId) => {
     return result;
   } catch (error) {
     console.error("Error force checking upcoming appointments:", error);
+    throw error;
+  }
+};
+
+export const acknowledgeAppointmentCancellation = async (appointmentId) => {
+  try {
+    const appointmentRef = doc(db, "appointments", appointmentId);
+    
+    await updateDoc(appointmentRef, {
+      acknowledged: true,
+      acknowledgedAt: Timestamp.now()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error acknowledging appointment cancellation:", error);
     throw error;
   }
 };

@@ -141,7 +141,7 @@ export const createAnonymousReplyNotification = async (userId, postId, replyCont
  * @param {Object} appointment - The appointment data
  * @param {string} status - The new status (confirmed, rejected)
  */
-export const createAppointmentStatusNotification = async (studentId, appointment, status) => {
+export const createAppointmentStatusNotification = async (studentId, appointment, status, reason = null) => {
   try {
     // Get the user document to find the user's UID
     const usersRef = collection(db, 'users');
@@ -157,14 +157,23 @@ export const createAppointmentStatusNotification = async (studentId, appointment
     const userId = userDoc.id;
     
     // Create the notification
+    let message = `Your appointment on ${appointment.date} at ${appointment.timeSlot} has been ${status}.`;
+    
+    if (reason && (status === 'cancelled' || status === 'rejected')) {
+      message = `Your appointment on ${appointment.date} at ${appointment.timeSlot} has been ${status}. Reason: ${reason}`;
+    }
+    
     const notificationData = {
       userId: userId,
       type: 'appointment_status',
       title: `Appointment ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-      message: `Your appointment on ${appointment.date} at ${appointment.timeSlot} has been ${status}.`,
+      message: message,
       appointmentId: appointment.id,
       createdAt: Timestamp.now(),
-      unread: true
+      unread: true,
+      requiresAcknowledgment: status === 'cancelled',
+      acknowledged: false,
+      reason: reason || null
     };
     
     await addDoc(collection(db, 'notifications'), notificationData);
@@ -287,5 +296,26 @@ export const subscribeToUserNotifications = (callback) => {
   } catch (error) {
     console.error("Error setting up notification subscription:", error);
     return null;
+  }
+};
+
+/**
+ * Acknowledge a notification
+ * @param {string} notificationId - The notification ID
+ * @returns {Promise<void>}
+ */
+export const acknowledgeNotification = async (notificationId) => {
+  try {
+    const notificationRef = doc(db, 'notifications', notificationId);
+    
+    await updateDoc(notificationRef, {
+      acknowledged: true,
+      acknowledgedAt: Timestamp.now()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error("Error acknowledging notification:", error);
+    throw error;
   }
 };

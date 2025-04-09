@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Tabs, List, Card, Tag, Button, Space, Empty, Spin, Alert, Modal, message, Collapse, Table } from 'antd';
+import { Typography, Tabs, List, Card, Tag, Button, Space, Empty, Spin, Alert, Modal, message, Collapse, Table, Form, Input } from 'antd';
 import { CheckOutlined, CloseOutlined, ReloadOutlined, EyeOutlined, BugOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
@@ -96,6 +96,9 @@ const GuidanceAppointments = () => {
   const [appointmentToReject, setAppointmentToReject] = useState(null);
   const [indexUrl, setIndexUrl] = useState(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null);
+  const [cancellationReason, setCancellationReason] = useState('');
 
   useEffect(() => {
     fetchAppointments();
@@ -210,6 +213,62 @@ const GuidanceAppointments = () => {
     }
   };
 
+  const showCancelConfirmation = (appointmentId) => {
+    const appointment = appointments.find(app => app.id === appointmentId);
+    if (appointment) {
+      setAppointmentToCancel(appointment);
+      setCancellationReason('');
+      setCancelModalVisible(true);
+    }
+  };
+
+  const handleCancelModalClose = () => {
+    setCancelModalVisible(false);
+    setAppointmentToCancel(null);
+    setCancellationReason('');
+  };
+
+  const handleCancelAppointment = async () => {
+    if (!appointmentToCancel) return;
+    
+    if (!cancellationReason.trim()) {
+      message.error('Please provide a reason for cancellation');
+      return;
+    }
+    
+    try {
+      setActionLoading(true);
+      
+      await updateAppointmentStatus(appointmentToCancel.id, 'cancelled', cancellationReason);
+      
+      setAppointments(appointments.map(app => 
+        app.id === appointmentToCancel.id ? { 
+          ...app, 
+          status: 'cancelled',
+          cancellationReason,
+          cancellationBy: 'guidance',
+          acknowledged: false
+        } : app
+      ));
+      
+      message.success('Appointment cancelled successfully');
+      
+      setCancelModalVisible(false);
+      
+      if (selectedAppointment && selectedAppointment.id === appointmentToCancel.id) {
+        setDetailsModalVisible(false);
+        setSelectedAppointment(null);
+      }
+    } catch (error) {
+      console.error("Error cancelling appointment:", error);
+      message.error('Failed to cancel appointment');
+    } finally {
+      setActionLoading(false);
+      setAppointmentToCancel(null);
+      setCancellationReason('');
+    }
+  };
+
   const handleViewDetails = (record) => {
     if (!record) {
       console.error("Record is undefined or null");
@@ -282,15 +341,26 @@ const GuidanceAppointments = () => {
               </>
             )}
             {record.status === 'confirmed' && (
-              <ActionButton 
-                type="primary" 
-                size="small" 
-                icon={<CheckOutlined />}
-                onClick={() => handleCompleteAppointment(record.id)}
-                loading={actionLoading}
-              >
-                {window.innerWidth > 576 ? 'Complete' : ''}
-              </ActionButton>
+              <>
+                <ActionButton 
+                  type="primary" 
+                  size="small" 
+                  icon={<CheckOutlined />}
+                  onClick={() => handleCompleteAppointment(record.id)}
+                  loading={actionLoading}
+                >
+                  {window.innerWidth > 576 ? 'Complete' : ''}
+                </ActionButton>
+                <ActionButton 
+                  danger 
+                  size="small" 
+                  icon={<CloseOutlined />}
+                  onClick={() => showCancelConfirmation(record.id)}
+                  loading={actionLoading}
+                >
+                  {window.innerWidth > 576 ? 'Cancel' : ''}
+                </ActionButton>
+              </>
             )}
             <ActionButton 
               type="link" 
@@ -598,6 +668,51 @@ const GuidanceAppointments = () => {
             <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToReject.counselorType)}</p>
           </div>
         )}
+      </Modal>
+
+      <Modal
+        title={<><ExclamationCircleOutlined style={{ color: '#ff4d4f', marginRight: '8px' }} /> Cancel Appointment</>}
+        open={cancelModalVisible}
+        onCancel={handleCancelModalClose}
+        footer={[
+          <Button key="back" onClick={handleCancelModalClose}>
+            No
+          </Button>,
+          <Button
+            key="submit"
+            type="primary"
+            danger
+            loading={actionLoading}
+            onClick={handleCancelAppointment}
+          >
+            Yes, Cancel Appointment
+          </Button>,
+        ]}
+      >
+        <p>Are you sure you want to cancel this appointment? This will notify the student.</p>
+        {appointmentToCancel && (
+          <div style={{ marginTop: '16px', background: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
+            <p style={{ margin: '4px 0' }}><strong>Student:</strong> {appointmentToCancel.studentName}</p>
+            <p style={{ margin: '4px 0' }}><strong>Date:</strong> {appointmentToCancel.date}</p>
+            <p style={{ margin: '4px 0' }}><strong>Time:</strong> {appointmentToCancel.timeSlot}</p>
+            <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToCancel.counselorType)}</p>
+          </div>
+        )}
+        
+        <div style={{ marginTop: '16px' }}>
+          <Form.Item
+            label="Reason for Cancellation"
+            required
+            help="This reason will be sent to the student"
+          >
+            <Input.TextArea 
+              rows={3} 
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Please provide a reason for cancellation"
+            />
+          </Form.Item>
+        </div>
       </Modal>
     </PageContainer>
   );

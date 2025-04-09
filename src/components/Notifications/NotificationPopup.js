@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Badge, Dropdown, List, Typography, Tabs, Button, Empty, message, Spin, Alert } from 'antd';
+import { Badge, Dropdown, List, Typography, Tabs, Button, Empty, message, Spin, Alert, Tag } from 'antd';
 import { BellOutlined, CheckOutlined, InboxOutlined } from '@ant-design/icons';
 import { 
   getUserNotifications, 
   markAllNotificationsAsRead, 
   markNotificationAsRead,
-  subscribeToUserNotifications
+  subscribeToUserNotifications,
+  acknowledgeNotification
 } from '../../firebase/notifications';
+import { acknowledgeAppointmentCancellation } from '../../firebase/appointments';
 import moment from 'moment';
 
 const { Text } = Typography;
@@ -174,17 +176,67 @@ const NotificationPopup = () => {
       setNotifications(notifications.map(n => 
         n.id === notification.id ? { ...n, unread: false } : n
       ));
-      message.info(`${notification.title}: ${notification.message}`);
+      
+      if (notification.type === 'appointment_status' && 
+          notification.requiresAcknowledgment && 
+          !notification.acknowledged) {
+        message.info({
+          content: (
+            <div>
+              <p>{notification.title}: {notification.message}</p>
+              <Button 
+                type="primary" 
+                size="small" 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAcknowledgeNotification(notification);
+                }}
+              >
+                Acknowledge
+              </Button>
+            </div>
+          ),
+          duration: 0,
+          key: `notification-${notification.id}`
+        });
+      } else {
+        message.info(`${notification.title}: ${notification.message}`);
+      }
     } catch (error) {
       console.error("Error marking notification as read:", error);
       message.error("Failed to mark notification as read");
     }
   };
 
+  const handleAcknowledgeNotification = async (notification) => {
+    try {
+      await acknowledgeNotification(notification.id);
+      
+      if (notification.appointmentId) {
+        await acknowledgeAppointmentCancellation(notification.appointmentId);
+      }
+      
+      setNotifications(notifications.map(n => 
+        n.id === notification.id ? { ...n, acknowledged: true } : n
+      ));
+      
+      message.success('Notification acknowledged');
+      message.destroy(`notification-${notification.id}`);
+    } catch (error) {
+      console.error("Error acknowledging notification:", error);
+      message.error("Failed to acknowledge notification");
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
-      setNotifications(notifications.map(n => ({ ...n, unread: false })));
+      
+      setNotifications(notifications.map(n => ({
+        ...n,
+        unread: false
+      })));
+      
       message.success('All notifications marked as read');
     } catch (error) {
       console.error("Error marking all notifications as read:", error);
@@ -204,6 +256,44 @@ const NotificationPopup = () => {
         return <span style={{ color: '#faad14', marginRight: '8px' }}>📣</span>;
     }
   };
+
+  
+
+  const renderNotificationItem = (item) => (
+    <NotificationItem 
+      unread={item.unread} 
+      onClick={() => handleNotificationClick(item)}
+    >
+      <NotificationContent>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {getNotificationIcon(item.type)}
+          <Text style={{ flexGrow: '1' }} strong>{item.title}</Text>
+          {item.unread && <Badge color="blue" />}
+        </div>
+        <Text>{item.message}</Text>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <NotificationTime>
+            {moment(item.time).fromNow()}
+          </NotificationTime>
+          {item.requiresAcknowledgment && !item.acknowledged && (
+            <Button 
+              type="primary" 
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAcknowledgeNotification(item);
+              }}
+            >
+              Acknowledge
+            </Button>
+          )}
+          {item.requiresAcknowledgment && item.acknowledged && (
+            <Tag color="green">Acknowledged</Tag>
+          )}
+        </div>
+      </NotificationContent>
+    </NotificationItem>
+  );
 
   const unreadCount = notifications.filter(n => n.unread).length;
 
@@ -251,26 +341,7 @@ const NotificationPopup = () => {
                   itemLayout="horizontal"
                   dataSource={notifications}
                   style={{ maxHeight: '320px', overflow: 'auto' }}
-                  renderItem={item => (
-                    <NotificationItem 
-                      unread={item.unread} 
-                      onClick={() => handleNotificationClick(item)}
-                    >
-                      <NotificationContent>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          {getNotificationIcon(item.type)}
-                          <Text style={{ flexGrow: '1' }}  strong>{item.title}</Text>
-                          {item.unread && <Badge color="blue" />}
-                        </div>
-                        <Text>{item.message}</Text>
-                        <div>
-                          <NotificationTime>
-                            {moment(item.time).fromNow()}
-                          </NotificationTime>
-                        </div>
-                      </NotificationContent>
-                    </NotificationItem>
-                  )}
+                  renderItem={renderNotificationItem}
                 />
               ) : (
                 <EmptyContainer>
@@ -292,26 +363,7 @@ const NotificationPopup = () => {
                   itemLayout="horizontal"
                   dataSource={notifications.filter(n => n.unread)}
                   style={{ maxHeight: '320px', overflow: 'auto' }}
-                  renderItem={item => (
-                    <NotificationItem 
-                      unread={true} 
-                      onClick={() => handleNotificationClick(item)}
-                    >
-                      <NotificationContent>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          {getNotificationIcon(item.type)}
-                          <Text strong>{item.title}</Text>
-                          <Badge color="blue" />
-                        </div>
-                        <Text>{item.message}</Text>
-                        <div>
-                          <NotificationTime>
-                            {moment(item.time).fromNow()}
-                          </NotificationTime>
-                        </div>
-                      </NotificationContent>
-                    </NotificationItem>
-                  )}
+                  renderItem={renderNotificationItem}
                 />
               ) : (
                 <EmptyContainer>
