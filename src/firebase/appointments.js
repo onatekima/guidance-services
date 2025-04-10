@@ -47,13 +47,29 @@ export const checkTimeSlotAvailability = async (date, timeSlot) => {
 };
 
 export const getAvailableTimeSlots = async (date) => {
-  const allTimeSlots = [
-    "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
-    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
-  ];
-  
   const formattedDate = moment(date).format('YYYY-MM-DD');
   
+  // First check if we have a custom availability document for this date
+  const availabilityRef = doc(db, 'availableTimeSlots', formattedDate);
+  const availabilityDoc = await getDoc(availabilityRef);
+  
+  let availableSlots = [];
+  
+  if (availabilityDoc.exists()) {
+    // Use the custom availability settings
+    const slotsData = availabilityDoc.data().slots || [];
+    availableSlots = slotsData
+      .filter(slot => slot.available)
+      .map(slot => slot.time);
+  } else {
+    // Fall back to default time slots
+    availableSlots = [
+      "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM", 
+      "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
+    ];
+  }
+  
+  // Now check which slots are already booked
   const appointmentsQuery = query(
     collection(db, APPOINTMENTS_COLLECTION),
     where("date", "==", formattedDate),
@@ -67,11 +83,12 @@ export const getAvailableTimeSlots = async (date) => {
     bookedTimeSlots.push(doc.data().timeSlot);
   });
   
-  const availableTimeSlots = allTimeSlots.filter(
+  // Filter out booked slots
+  const finalAvailableSlots = availableSlots.filter(
     timeSlot => !bookedTimeSlots.includes(timeSlot)
   );
   
-  return availableTimeSlots;
+  return finalAvailableSlots;
 };
 
 export const getAllAppointments = async () => {
@@ -166,16 +183,48 @@ export const bookAnonymousConsultation = async (consultationData) => {
 };
 
 export const getAllTimeSlots = async (date) => {
-  const availableSlots = await getAvailableTimeSlots(date);
+  const formattedDate = moment(date).format('YYYY-MM-DD');
   
-  const allPossibleSlots = [
-    "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-    "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
-  ];
+  // First check if we have a custom availability document for this date
+  const availabilityRef = doc(db, 'availableTimeSlots', formattedDate);
+  const availabilityDoc = await getDoc(availabilityRef);
   
-  return allPossibleSlots.map(time => ({
-    time,
-    available: availableSlots.includes(time)
+  let allSlots = [];
+  
+  if (availabilityDoc.exists()) {
+    // Use the custom availability settings
+    allSlots = availabilityDoc.data().slots || [];
+  } else {
+    // Fall back to default time slots
+    const defaultSlots = [
+      "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
+      "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
+    ];
+    
+    allSlots = defaultSlots.map(time => ({
+      time,
+      available: true
+    }));
+  }
+  
+  // Now check which slots are already booked
+  const appointmentsQuery = query(
+    collection(db, APPOINTMENTS_COLLECTION),
+    where("date", "==", formattedDate),
+    where("status", "in", ["pending", "confirmed"])
+  );
+  
+  const appointmentsSnapshot = await getDocs(appointmentsQuery);
+  const bookedTimeSlots = [];
+  
+  appointmentsSnapshot.forEach(doc => {
+    bookedTimeSlots.push(doc.data().timeSlot);
+  });
+  
+  // Mark booked slots
+  return allSlots.map(slot => ({
+    ...slot,
+    booked: bookedTimeSlots.includes(slot.time)
   }));
 };
 

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Typography, Tabs, List, Card, Tag, Button, Space, Empty, Spin, Alert, Modal, message, Collapse, Table, Form, Input } from 'antd';
-import { CheckOutlined, CloseOutlined, ReloadOutlined, EyeOutlined, BugOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, ReloadOutlined, EyeOutlined, BugOutlined, ExclamationCircleOutlined, CalendarOutlined } from '@ant-design/icons';
 import { collection, query, where, getDocs, doc, getDoc, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { updateAppointmentStatus, getCounselorTypeLabel } from '../../firebase/appointments';
 import moment from 'moment';
+import TimeSlotManager from '../../components/Guidance/TimeSlotManager';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -99,6 +100,7 @@ const GuidanceAppointments = () => {
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [appointmentToCancel, setAppointmentToCancel] = useState(null);
   const [cancellationReason, setCancellationReason] = useState('');
+  const [showTimeSlotManager, setShowTimeSlotManager] = useState(false);
 
   useEffect(() => {
     fetchAppointments();
@@ -544,7 +546,15 @@ const GuidanceAppointments = () => {
         >
           Refresh
         </Button>
+        <Button 
+          icon={<CalendarOutlined />} 
+          onClick={() => setShowTimeSlotManager(!showTimeSlotManager)}
+        >
+          {showTimeSlotManager ? 'Hide Time Slot Manager' : 'Manage Time Slots'}
+        </Button>
       </Space>
+      
+      {showTimeSlotManager && <TimeSlotManager />}
       
       {renderContent()}
       

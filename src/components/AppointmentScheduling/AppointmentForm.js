@@ -105,16 +105,15 @@ const AppointmentForm = () => {
       
       console.log("Selected date:", date.format('YYYY-MM-DD'));
       
-      const standardTimeSlots = [
-        "9:00 AM", "10:00 AM", "11:00 AM", "12:00 PM",
-        "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM"
-      ];
-      
-      setAllTimeSlots(standardTimeSlots.map(time => ({ time })));
-      
       const formattedDate = date.format('YYYY-MM-DD');
-      const bookedSlots = await getBookedTimeSlots(formattedDate);
-      console.log("Booked time slots:", bookedSlots);
+      const allSlots = await getAllTimeSlots(formattedDate);
+      console.log("All time slots with availability:", allSlots);
+      
+      setAllTimeSlots(allSlots);
+      
+      const bookedSlots = allSlots
+        .filter(slot => slot.booked)
+        .map(slot => slot.time);
       
       setBookedTimeSlots(bookedSlots);
       
@@ -123,35 +122,6 @@ const AppointmentForm = () => {
       message.error('Failed to fetch time slots');
     } finally {
       setFetchingTimeSlots(false);
-    }
-  };
-
-  const getBookedTimeSlots = async (formattedDate) => {
-    try {
-      const appointmentsRef = collection(db, "appointments");
-      
-      const q = query(
-        appointmentsRef,
-        where("date", "==", formattedDate),
-        where("status", "in", ["pending", "confirmed"])
-      );
-      
-      const querySnapshot = await getDocs(q);
-      
-      const bookedSlots = [];
-      querySnapshot.forEach((doc) => {
-        const appointmentData = doc.data();
-        if (appointmentData.timeSlot) {
-          bookedSlots.push(appointmentData.timeSlot);
-        }
-      });
-      
-      console.log("Booked slots for", formattedDate, ":", bookedSlots);
-      
-      return bookedSlots;
-    } catch (error) {
-      console.error("Error getting booked time slots:", error);
-      return [];
     }
   };
 
@@ -290,15 +260,19 @@ const AppointmentForm = () => {
               disabled={!selectedDate || allTimeSlots.length === 0}
             >
               {allTimeSlots.map(slot => {
-                const isBooked = bookedTimeSlots.includes(slot.time);
+                const isBooked = slot.booked;
+                const isAvailable = slot.available;
                 
                 return (
                   <Option 
                     key={slot.time} 
                     value={slot.time} 
-                    disabled={isBooked}
+                    disabled={isBooked || !isAvailable}
                   >
-                    {slot.time} {isBooked && <Tag color="red">Booked</Tag>}
+                    {slot.time} {
+                      isBooked ? <Tag color="red">Booked</Tag> : 
+                      !isAvailable ? <Tag color="orange">Unavailable</Tag> : null
+                    }
                   </Option>
                 );
               })}
