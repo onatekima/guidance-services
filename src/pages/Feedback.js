@@ -52,7 +52,7 @@ const ResponseContainer = styled.div`
   margin-top: 16px;
   padding: 12px;
   background-color: #e6f7ff;
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid #1677ff;
   border-radius: 4px;
 `;
 
@@ -108,6 +108,8 @@ const FeedbackPage = () => {
         cleanValues.improvements = "";
       }
       
+      cleanValues.isAnonymous = true;
+      
       await createFeedback(cleanValues);
       
       message.success('Thank you for your feedback!');
@@ -128,7 +130,9 @@ const FeedbackPage = () => {
       setSubmittingInquiry(true);
       setInquirySuccess(false);
       
-      await createInquiry(values);
+      const cleanValues = { ...values, isAnonymous: true };
+      
+      await createInquiry(cleanValues);
       
       message.success('Your inquiry has been submitted. We will respond shortly.');
       inquiryForm.resetFields();
@@ -216,6 +220,7 @@ const FeedbackPage = () => {
           <FormContainer>
             <FormSubtitle>
               Your feedback helps us improve our services. Please share your thoughts and experiences with the guidance services.
+              All feedback is submitted anonymously.
             </FormSubtitle>
             
             {error && (
@@ -296,6 +301,7 @@ const FeedbackPage = () => {
                   htmlType="submit" 
                   loading={submittingFeedback}
                   icon={<SendOutlined />}
+                  style={{ backgroundColor: '#1677ff', borderColor: '#1677ff' }}
                 >
                   Submit Feedback
                 </SubmitButton>
@@ -317,6 +323,7 @@ const FeedbackPage = () => {
           <FormContainer>
             <FormSubtitle>
               Have a question about our guidance services? Submit your inquiry and we'll get back to you as soon as possible.
+              All inquiries are submitted anonymously.
             </FormSubtitle>
             
             {error && (
@@ -358,6 +365,7 @@ const FeedbackPage = () => {
                   htmlType="submit" 
                   loading={submittingInquiry}
                   icon={<QuestionCircleOutlined />}
+                  style={{ backgroundColor: '#1677ff', borderColor: '#1677ff' }}
                 >
                   Submit Question
                 </SubmitButton>
@@ -381,6 +389,7 @@ const FeedbackPage = () => {
               type="primary" 
               icon={<ReloadOutlined />} 
               onClick={fetchUserSubmissions}
+              style={{ backgroundColor: '#1677ff', borderColor: '#1677ff' }}
             >
               Refresh
             </RefreshButton>

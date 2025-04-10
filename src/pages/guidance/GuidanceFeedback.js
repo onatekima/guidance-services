@@ -11,7 +11,7 @@ import {
 } from '../../firebase/feedbackInquiries';
 import moment from 'moment';
 import { db } from '../../firebase/config';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -44,8 +44,8 @@ const LoadingContainer = styled.div`
 
 const MessageContainer = styled.div`
   padding: 12px;
-  background-color: #f6ffed;
-  border-left: 4px solid #52c41a;
+  background-color: #e6f7ff;
+  border-left: 4px solid #1677ff;
   border-radius: 4px;
   margin-bottom: 16px;
 `;
@@ -53,7 +53,7 @@ const MessageContainer = styled.div`
 const ReplyContainer = styled.div`
   padding: 12px;
   background-color: #e6f7ff;
-  border-left: 4px solid #1890ff;
+  border-left: 4px solid #1677ff;
   border-radius: 4px;
   margin-bottom: 8px;
 `;
@@ -69,7 +69,6 @@ const GuidanceFeedback = () => {
   const [activeTab, setActiveTab] = useState('all');
   const [replyText, setReplyText] = useState({});
   const [submitting, setSubmitting] = useState({});
-  const [userNames, setUserNames] = useState({});
 
   useEffect(() => {
     fetchItems(activeTab);
@@ -97,41 +96,6 @@ const GuidanceFeedback = () => {
       }
       
       setItems(fetchedItems);
-      
-      const userIds = [...new Set(fetchedItems.map(item => item.userId))];
-      const namesMap = {};
-      
-      await Promise.all(userIds.map(async (userId) => {
-        if (userId) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', userId));
-            if (userDoc.exists()) {
-              const userData = userDoc.data();
-              // Format the user name to include first name, last name, and email
-              const firstName = userData.firstName || '';
-              const lastName = userData.lastName || '';
-              const email = userData.email || '';
-              
-              if (firstName && lastName && email) {
-                namesMap[userId] = `${firstName} ${lastName} (${email})`;
-              } else if (firstName && lastName) {
-                namesMap[userId] = `${firstName} ${lastName}`;
-              } else if (email) {
-                namesMap[userId] = email;
-              } else {
-                namesMap[userId] = 'Unknown User';
-              }
-            } else {
-              namesMap[userId] = 'Unknown User';
-            }
-          } catch (error) {
-            console.error(`Error fetching user ${userId}:`, error);
-            namesMap[userId] = 'Unknown User';
-          }
-        }
-      }));
-      
-      setUserNames(namesMap);
     } catch (error) {
       console.error("Error fetching items:", error);
       setError("Failed to load data. Please try again later.");
@@ -216,12 +180,9 @@ const GuidanceFeedback = () => {
         }
         description={
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ marginBottom: '8px' }}>
               <Text type="secondary">
                 Date: {item.createdAt ? moment(item.createdAt.toDate()).format('YYYY-MM-DD HH:mm') : 'Unknown'}
-              </Text>
-              <Text strong>
-                From: {userNames[item.userId] || 'Loading...'}
               </Text>
             </div>
             
@@ -303,6 +264,7 @@ const GuidanceFeedback = () => {
         type="primary" 
         icon={<ReloadOutlined />} 
         onClick={() => fetchItems(activeTab)}
+        style={{ backgroundColor: '#1677ff', borderColor: '#1677ff' }}
       >
         Refresh
       </RefreshButton>

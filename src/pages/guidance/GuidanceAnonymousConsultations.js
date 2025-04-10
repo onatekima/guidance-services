@@ -82,6 +82,37 @@ const ChatContainer = styled.div`
   border-radius: 4px;
 `;
 
+const MessageBubble = styled.div`
+  max-width: 80%;
+  padding: 10px 16px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  position: relative;
+  word-wrap: break-word;
+`;
+
+const StudentMessage = styled(MessageBubble)`
+  align-self: flex-start;
+  background-color: #f0f0f0;
+  color: #000;
+  border-bottom-left-radius: 4px;
+`;
+
+const CounselorMessage = styled(MessageBubble)`
+  align-self: flex-end;
+  background-color: #1677ff;
+  color: #000;
+  border-bottom-right-radius: 4px;
+`;
+
+const MessageTime = styled(Text)`
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.7;
+  color: #000;
+`;
+
 const EditActions = styled(Space)`
   margin-top: 8px;
 `;
@@ -308,7 +339,7 @@ const GuidanceAnonymousConsultations = () => {
           <List.Item.Meta
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Consultation #{item.id.substring(0, 6)}</span>
+                <span>{item.nickname || 'Anonymous'}</span>
                 {getStatusTag(item.status || 'pending')}
               </div>
             }
@@ -344,7 +375,7 @@ const GuidanceAnonymousConsultations = () => {
     return (
       <>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <Title level={4}>Consultation #{activeConsultation.id.substring(0, 6)}</Title>
+          <Title level={4}>{activeConsultation.nickname || 'Anonymous'}</Title>
           {getStatusTag(activeConsultation.status || 'pending')}
         </div>
         
@@ -357,71 +388,76 @@ const GuidanceAnonymousConsultations = () => {
         </Paragraph>
         
         <ChatContainer ref={chatContainerRef}>
-          <MessageContainer>
-            <Text strong>Student's Concern:</Text>
-            <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{activeConsultation.details}</Paragraph>
-          </MessageContainer>
+          <StudentMessage>
+            {activeConsultation.details}
+            <MessageTime>
+              {activeConsultation.createdAt ? moment(activeConsultation.createdAt.toDate()).format('h:mm A') : ''}
+            </MessageTime>
+          </StudentMessage>
           
           {activeConsultation.replies && activeConsultation.replies.map((reply, index) => (
             reply.isFromCounselor ? (
-              <ReplyContainer key={index}>
-                <Text strong>Counselor:</Text>
-                {editingReplyIndex === index ? (
-                  <>
-                    <TextArea
-                      value={editReplyContent}
-                      onChange={(e) => setEditReplyContent(e.target.value)}
-                      rows={3}
-                      style={{ marginTop: 8, marginBottom: 8 }}
-                    />
-                    <EditActions>
-                      <Button
-                        type="primary"
-                        icon={<SaveOutlined />}
-                        size="small"
-                        onClick={handleSaveEdit}
-                        loading={editingSubmitting}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        icon={<CloseOutlined />}
-                        size="small"
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                    </EditActions>
-                  </>
-                ) : (
-                  <>
-                    <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text type="secondary">
-                        {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
-                        {reply.edited && ' (edited)'}
-                      </Text>
-                      <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditReply(index, reply.content)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </ReplyContainer>
+              editingReplyIndex === index ? (
+                <div key={index} style={{ alignSelf: 'flex-end', maxWidth: '80%' }}>
+                  <TextArea
+                    value={editReplyContent}
+                    onChange={(e) => setEditReplyContent(e.target.value)}
+                    rows={3}
+                    style={{ marginTop: 8, marginBottom: 8 }}
+                  />
+                  <EditActions>
+                    <Button
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      size="small"
+                      onClick={handleSaveEdit}
+                      loading={editingSubmitting}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      icon={<CloseOutlined />}
+                      size="small"
+                      onClick={handleCancelEdit}
+                    >
+                      Cancel
+                    </Button>
+                  </EditActions>
+                </div>
+              ) : (
+                <CounselorMessage key={index}>
+                  {reply.content}
+                  <MessageTime>
+                    {reply.timestamp ? moment(reply.timestamp.toDate()).format('h:mm A') : ''}
+                    {reply.edited && ' (edited)'}
+                  </MessageTime>
+                  <Button
+                    type="text"
+                    icon={<EditOutlined />}
+                    size="small"
+                    onClick={() => handleEditReply(index, reply.content)}
+                    style={{ 
+                      position: 'absolute', 
+                      left: '-30px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)',
+                      color: '#fff',
+                      background: 'rgba(0,0,0,0.1)',
+                      borderRadius: '50%',
+                      padding: '2px',
+                    }}
+                    className="edit-button"
+                  />
+                </CounselorMessage>
+              )
             ) : (
-              <StudentReplyContainer key={index}>
-                <Text strong>Student:</Text>
-                <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                <Text type="secondary">
-                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+              <StudentMessage key={index}>
+                {reply.content}
+                <MessageTime>
+                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('h:mm A') : ''}
                   {reply.edited && ' (edited)'}
-                </Text>
-              </StudentReplyContainer>
+                </MessageTime>
+              </StudentMessage>
             )
           ))}
         </ChatContainer>

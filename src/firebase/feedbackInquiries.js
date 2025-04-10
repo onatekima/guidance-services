@@ -32,6 +32,7 @@ export const createFeedback = async (feedbackData) => {
     const feedbackWithTimestamp = {
       ...feedbackData,
       userId: currentUser.uid,
+      isAnonymous: feedbackData.isAnonymous || false,
       type: 'feedback',
       status: 'unread',
       createdAt: Timestamp.now(),
@@ -70,6 +71,7 @@ export const createInquiry = async (inquiryData) => {
     const inquiryWithTimestamp = {
       ...inquiryData,
       userId: currentUser.uid,
+      isAnonymous: inquiryData.isAnonymous || false,
       type: 'inquiry',
       status: 'unread',
       createdAt: Timestamp.now(),

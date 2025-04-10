@@ -81,21 +81,52 @@ const StyledList = styled(List)`
   }
 `;
 
-const ReplyContainer = styled.div`
-  margin-top: 16px;
-  padding: 12px;
-  background-color: ${props => props.theme.colors.light};
+const ChatContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding: 8px;
+  border: 1px solid #f0f0f0;
   border-radius: 4px;
 `;
 
-const CounselorReply = styled(ReplyContainer)`
-  background-color: #e6f7ff;
-  border-left: 4px solid ${props => props.theme.colors.primary};
+const MessageBubble = styled.div`
+  max-width: 80%;
+  padding: 10px 16px;
+  border-radius: 18px;
+  margin-bottom: 8px;
+  position: relative;
+  word-wrap: break-word;
 `;
 
-const UserMessage = styled(ReplyContainer)`
-  background-color: #f6ffed;
-  border-left: 4px solid ${props => props.theme.colors.secondary};
+const UserMessage = styled(MessageBubble)`
+  align-self: flex-end;
+  background-color: #1677ff;
+  color: white;
+  border-bottom-right-radius: 4px;
+  position: relative;
+  
+  &:hover {
+    .edit-button {
+      display: flex !important;
+    }
+  }
+`;
+
+const CounselorMessage = styled(MessageBubble)`
+  align-self: flex-start;
+  background-color: #f0f0f0;
+  color: #000;
+  border-bottom-left-radius: 4px;
+`;
+
+const MessageTime = styled(Text)`
+  display: block;
+  font-size: 11px;
+  margin-top: 4px;
+  opacity: 0.7;
 `;
 
 const LoadingContainer = styled.div`
@@ -108,17 +139,6 @@ const LoadingContainer = styled.div`
 const NoResultsContainer = styled.div`
   text-align: center;
   padding: 40px 0;
-`;
-
-const ChatContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  max-height: 400px;
-  overflow-y: auto;
-  margin-bottom: 16px;
-  padding: 8px;
-  border: 1px solid #f0f0f0;
-  border-radius: 4px;
 `;
 
 const ReplyForm = styled.div`
@@ -307,16 +327,7 @@ const AnonymousConsultationList = () => {
       renderItem={item => (
         <List.Item 
           key={item.id}
-          onClick={() => {
-            setActiveConsultation(item);
-            if (isMobile) {
-              setTimeout(() => {
-                document.getElementById('chat-view')?.scrollIntoView({ 
-                  behavior: 'smooth' 
-                });
-              }, 100);
-            }
-          }}
+          onClick={() => handleConsultationClick(item)}
           style={{ 
             backgroundColor: activeConsultation?.id === item.id 
               ? '#f0f0f0' 
@@ -326,7 +337,7 @@ const AnonymousConsultationList = () => {
           <List.Item.Meta
             title={
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>#{item.id.substring(0, 6)}</span>
+                <span>{item.nickname || 'Anonymous'}</span>
                 {getStatusTag(item.status)}
               </div>
             }
@@ -354,7 +365,7 @@ const AnonymousConsultationList = () => {
     return (
       <>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <Title level={4}>Consultation #{activeConsultation.id.substring(0, 6)}</Title>
+          <Title level={4}>{activeConsultation.nickname || 'Anonymous'}</Title>
           {getStatusTag(activeConsultation.status)}
         </div>
         
@@ -368,70 +379,75 @@ const AnonymousConsultationList = () => {
         
         <ChatContainer ref={chatContainerRef}>
           <UserMessage>
-            <Text strong>Your initial message:</Text>
-            <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{activeConsultation.details}</Paragraph>
+            {activeConsultation.details}
+            <MessageTime style={{ color: 'white' }}>
+              {moment(activeConsultation.createdAt.toDate()).format('h:mm A')}
+            </MessageTime>
           </UserMessage>
           
           {activeConsultation.replies && activeConsultation.replies.map((reply, index) => (
             reply.isFromCounselor ? (
-              <CounselorReply key={index}>
-                <Text strong>Guidance Counselor:</Text>
-                <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                <Text type="secondary">
-                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
+              <CounselorMessage key={index}>
+                {reply.content}
+                <MessageTime>
+                  {reply.timestamp ? moment(reply.timestamp.toDate()).format('h:mm A') : ''}
                   {reply.edited && ' (edited)'}
-                </Text>
-              </CounselorReply>
+                </MessageTime>
+              </CounselorMessage>
             ) : (
-              <UserMessage key={index}>
-                <Text strong>You:</Text>
-                {editingReplyIndex === index ? (
-                  <>
-                    <TextArea
-                      value={editReplyContent}
-                      onChange={(e) => setEditReplyContent(e.target.value)}
-                      rows={3}
-                      style={{ marginTop: 8, marginBottom: 8 }}
-                    />
-                    <EditActions>
-                      <Button
-                        type="primary"
-                        icon={<SaveOutlined />}
-                        size="small"
-                        onClick={handleSaveEdit}
-                        loading={editingSubmitting}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        icon={<CloseOutlined />}
-                        size="small"
-                        onClick={handleCancelEdit}
-                      >
-                        Cancel
-                      </Button>
-                    </EditActions>
-                  </>
-                ) : (
-                  <>
-                    <Paragraph style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{reply.content}</Paragraph>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text type="secondary">
-                        {reply.timestamp ? moment(reply.timestamp.toDate()).format('YYYY-MM-DD HH:mm') : ''}
-                        {reply.edited && ' (edited)'}
-                      </Text>
-                      <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        size="small"
-                        onClick={() => handleEditReply(index, reply.content)}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </UserMessage>
+              editingReplyIndex === index ? (
+                <div key={index} style={{ alignSelf: 'flex-end', maxWidth: '80%' }}>
+                  <TextArea
+                    value={editReplyContent}
+                    onChange={(e) => setEditReplyContent(e.target.value)}
+                    rows={3}
+                    style={{ marginBottom: 8 }}
+                  />
+                  <EditActions>
+                    <Button
+                      type="primary"
+                      icon={<SaveOutlined />}
+                      size="small"
+                      onClick={handleSaveEdit}
+                      loading={editingSubmitting}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      icon={<CloseOutlined />}
+                      size="small"
+                      onClick={handleCancelEdit}
+                    >
+                      Cancel
+                    </Button>
+                  </EditActions>
+                </div>
+              ) : (
+                <UserMessage key={index}>
+                  {reply.content}
+                  <MessageTime style={{ color: 'white' }}>
+                    {reply.timestamp ? moment(reply.timestamp.toDate()).format('h:mm A') : ''}
+                    {reply.edited && ' (edited)'}
+                  </MessageTime>
+                  <Button
+                    type="text"
+                    icon={<EditOutlined />}
+                    size="small"
+                    onClick={() => handleEditReply(index, reply.content)}
+                    style={{ 
+                      position: 'absolute', 
+                      left: '-30px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)',
+                      color: '#fff',
+                      background: 'rgba(0,0,0,0.1)',
+                      borderRadius: '50%',
+                      padding: '2px'
+                    }}
+                    className="edit-button"
+                  />
+                </UserMessage>
+              )
             )
           ))}
         </ChatContainer>

@@ -67,7 +67,8 @@ const AnonymousConsultationForm = () => {
       const consultationData = {
         concernCategory: values.concernCategory,
         details: values.details,
-        userId: currentUser.uid // Store the user ID
+        userId: currentUser.uid,
+        nickname: values.nickname || 'Anonymous'
       };
       
       // Submit to Firebase
@@ -106,6 +107,16 @@ const AnonymousConsultationForm = () => {
         layout="vertical"
         onFinish={onFinish}
       >
+        <Form.Item
+          name="nickname"
+          label="Your Nickname"
+          rules={[{ required: true, message: 'Please enter a nickname' }]}
+        >
+          <Input 
+            placeholder="Enter a nickname for this consultation" 
+          />
+        </Form.Item>
+
         <Form.Item
           name="concernCategory"
           label="Type of Concern"
