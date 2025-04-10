@@ -252,12 +252,16 @@ const NotificationPopup = () => {
         return <span style={{ color: '#52c41a', marginRight: '8px' }}>📅</span>;
       case 'appointment_status':
         return <span style={{ color: '#722ed1', marginRight: '8px' }}>🔔</span>;
+      case 'appointment_scheduled':
+        return <span style={{ color: '#1890ff', marginRight: '8px' }}>📋</span>;
+      case 'appointment_cancelled':
+        return <span style={{ color: '#f5222d', marginRight: '8px' }}>❌</span>;
+      case 'new_student':
+        return <span style={{ color: '#52c41a', marginRight: '8px' }}>👤</span>;
       default:
         return <span style={{ color: '#faad14', marginRight: '8px' }}>📣</span>;
     }
   };
-
-  
 
   const renderNotificationItem = (item) => (
     <NotificationItem 

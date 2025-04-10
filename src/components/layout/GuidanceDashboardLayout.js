@@ -403,6 +403,7 @@ const GuidanceDashboardLayout = () => {
             )}
           </HeaderLeft>
           <HeaderRight>
+            <NotificationPopup />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <UserInfo>
                 <Avatar style={{ backgroundColor: '#1677ff' }}>

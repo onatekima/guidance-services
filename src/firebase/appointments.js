@@ -1,7 +1,7 @@
 import { collection, addDoc, getDocs, query, where, orderBy, Timestamp, doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "./config";
 import moment from "moment";
-import { createAppointmentStatusNotification, createAppointmentReminderNotification } from './notifications';
+import { createAppointmentStatusNotification, createAppointmentReminderNotification, createAppointmentScheduledNotification, createAppointmentCancelledByStudentNotification } from './notifications';
 
 const APPOINTMENTS_COLLECTION = "appointments";
 
@@ -293,6 +293,11 @@ export const updateAppointmentStatus = async (appointmentId, status, reason = nu
       updateData.cancellationReason = reason;
       updateData.cancellationBy = appointmentData.studentId === 'guidance' ? 'guidance' : 'student';
       updateData.acknowledged = false;
+
+      await createAppointmentCancelledByStudentNotification({
+        id: appointmentId,
+        ...appointmentData
+      }, reason);
     }
     
     await updateDoc(appointmentRef, updateData);
@@ -471,6 +476,70 @@ export const acknowledgeAppointmentCancellation = async (appointmentId) => {
     return true;
   } catch (error) {
     console.error("Error acknowledging appointment cancellation:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create a new appointment
+ * @param {Object} appointmentData - The appointment data
+ * @returns {Promise<string>} - The appointment ID
+ */
+export const createAppointment = async (appointmentData) => {
+  try {
+    const appointmentWithTimestamp = {
+      ...appointmentData,
+      createdAt: Timestamp.now()
+    };
+    
+    const docRef = await addDoc(collection(db, 'appointments'), appointmentWithTimestamp);
+    
+    // Create notification for guidance counselors
+    await createAppointmentScheduledNotification({
+      id: docRef.id,
+      ...appointmentWithTimestamp
+    });
+    
+    return docRef.id;
+  } catch (error) {
+    console.error("Error creating appointment:", error);
+    throw error;
+  }
+};
+
+/**
+ * Cancel an appointment
+ * @param {string} appointmentId - The appointment ID
+ * @param {string} reason - The cancellation reason
+ * @returns {Promise<boolean>} - Success status
+ */
+export const cancelAppointment = async (appointmentId, reason = null) => {
+  try {
+    const appointmentRef = doc(db, 'appointments', appointmentId);
+    const appointmentSnap = await getDoc(appointmentRef);
+    
+    if (!appointmentSnap.exists()) {
+      throw new Error('Appointment not found');
+    }
+    
+    const appointmentData = appointmentSnap.data();
+    
+    // Update the appointment status
+    await updateDoc(appointmentRef, {
+      status: 'cancelled',
+      cancellationReason: reason || null,
+      updatedAt: Timestamp.now()
+    });
+    
+    // Create notification for guidance counselors
+    await createAppointmentCancelledByStudentNotification({
+      id: appointmentId,
+      ...appointmentData
+    }, reason);
+    
+    return true;
+  } catch (error) {
+    console.error("Error cancelling appointment:", error);
     throw error;
   }
 };

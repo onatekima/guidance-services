@@ -319,3 +319,142 @@ export const acknowledgeNotification = async (notificationId) => {
     throw error;
   }
 };
+
+/**
+ * Create notification for guidance counselors when a student schedules an appointment
+ * @param {Object} appointment - The appointment data
+ * @returns {Promise<string>} - The notification ID
+ */
+export const createAppointmentScheduledNotification = async (appointment) => {
+  try {
+    // Get all users with role 'guidance'
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('role', '==', 'guidance'));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.warn('No guidance counselors found to notify');
+      return;
+    }
+    
+    const notificationPromises = [];
+    
+    // Create a notification for each guidance counselor
+    querySnapshot.forEach(doc => {
+      const guidanceUserId = doc.id;
+      
+      const notificationData = {
+        userId: guidanceUserId,
+        type: 'appointment_scheduled',
+        title: 'New Appointment Scheduled',
+        message: `Student ${appointment.studentName} (${appointment.studentId}) has scheduled an appointment on ${appointment.date} at ${appointment.timeSlot}.`,
+        appointmentId: appointment.id,
+        createdAt: Timestamp.now(),
+        unread: true
+      };
+      
+      notificationPromises.push(addDoc(collection(db, 'notifications'), notificationData));
+    });
+    
+    await Promise.all(notificationPromises);
+    return true;
+  } catch (error) {
+    console.error("Error creating appointment scheduled notification:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create notification for guidance counselors when a student cancels an appointment
+ * @param {Object} appointment - The appointment data
+ * @param {string} reason - The cancellation reason
+ * @returns {Promise<string>} - The notification ID
+ */
+export const createAppointmentCancelledByStudentNotification = async (appointment, reason = null) => {
+  try {
+    // Get all users with role 'guidance'
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('role', '==', 'guidance'));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.warn('No guidance counselors found to notify');
+      return;
+    }
+    
+    const notificationPromises = [];
+    
+    // Create a notification for each guidance counselor
+    querySnapshot.forEach(doc => {
+      const guidanceUserId = doc.id;
+      
+      let message = `Student ${appointment.studentName} (${appointment.studentId}) has cancelled their appointment on ${appointment.date} at ${appointment.timeSlot}.`;
+      
+      if (reason) {
+        message += ` Reason: ${reason}`;
+      }
+      
+      const notificationData = {
+        userId: guidanceUserId,
+        type: 'appointment_cancelled',
+        title: 'Appointment Cancelled',
+        message: message,
+        appointmentId: appointment.id,
+        createdAt: Timestamp.now(),
+        unread: true
+      };
+      
+      notificationPromises.push(addDoc(collection(db, 'notifications'), notificationData));
+    });
+    
+    await Promise.all(notificationPromises);
+    return true;
+  } catch (error) {
+    console.error("Error creating appointment cancelled notification:", error);
+    throw error;
+  }
+};
+
+/**
+ * Create notification for guidance counselors when a new student account is created
+ * @param {Object} user - The user data
+ * @returns {Promise<string>} - The notification ID
+ */
+export const createNewStudentAccountNotification = async (user) => {
+  try {
+    // Get all users with role 'guidance'
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, where('role', '==', 'guidance'));
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.warn('No guidance counselors found to notify');
+      return;
+    }
+    
+    const notificationPromises = [];
+    
+    // Create a notification for each guidance counselor
+    querySnapshot.forEach(doc => {
+      const guidanceUserId = doc.id;
+      
+      const notificationData = {
+        userId: guidanceUserId,
+        type: 'new_student',
+        title: 'New Student Account',
+        message: `A new student account has been created: ${user.name} (${user.studentId}).`,
+        studentId: user.studentId,
+        createdAt: Timestamp.now(),
+        unread: true
+      };
+      
+      notificationPromises.push(addDoc(collection(db, 'notifications'), notificationData));
+    });
+    
+    await Promise.all(notificationPromises);
+    return true;
+  } catch (error) {
+    console.error("Error creating new student account notification:", error);
+    throw error;
+  }
+};
