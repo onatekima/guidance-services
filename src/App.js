@@ -30,6 +30,7 @@ import GuidanceNewsFeed from './pages/guidance/GuidanceNewsFeed';
 import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import ForgotPasswordPage from './pages/ForgotPassword';
+import NewLogin from './pages/NewLogin';
 
 function App() {
   return (
@@ -39,7 +40,7 @@ function App() {
           <Router>
             <Routes>
               {/* Auth Routes */}
-              <Route path="/login" element={<LoginPage />} />
+              <Route path="/login" element={<NewLogin />} />
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               
