@@ -15,7 +15,7 @@ const isValidStudentId = (studentId) => {
 
 // Register new student
 export const registerStudent = async (studentData) => {
-  const { email, password, studentId, firstName, lastName } = studentData;
+  const { email, password, studentId, firstName, lastName, gender } = studentData;
 
   if (!isValidStudentId(studentId)) {
     throw new Error("Invalid student ID format. Please use: 11718MN-012140");
@@ -38,6 +38,7 @@ export const registerStudent = async (studentData) => {
       firstName,
       lastName,
       email,
+      gender,
       role: "student",
       createdAt: new Date().toISOString()
     });

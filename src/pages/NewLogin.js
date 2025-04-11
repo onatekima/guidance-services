@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { 
   Typography, 
@@ -8,7 +8,9 @@ import {
   Divider, 
   message,
   Modal,
-  Alert
+  Alert,
+  Spin,
+  Select
 } from 'antd';
 import { 
   UserOutlined, 
@@ -20,8 +22,13 @@ import { useNavigate } from 'react-router-dom';
 import { loginUser, sendPasswordResetEmail, registerStudent } from '../firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import philscaLogo from '../assets/images/philsca.png';
+import supabase from '../supabase/supabaseClient';
+import { db } from '../firebase/config';
+import { doc, getDoc } from 'firebase/firestore';
 
 const { Title, Text, Paragraph } = Typography;
+
+const SETTINGS_DOC_ID = 'app_settings';
 
 const PageContainer = styled.div`
   width: 100%;
@@ -31,6 +38,7 @@ const PageContainer = styled.div`
 `;
 
 const HeaderContainer = styled.div`
+  opacity: 0.8;
   display: flex;
   justify-content: space-between;
   padding: 16px;
@@ -134,7 +142,7 @@ const PhotoSection = styled.div`
   position: sticky;
   top: 64px;
   height: calc(100vh - 64px);
-  background-image: url('https://placehold.co/800x600/1677ff/ffffff?text=Campus+Photo');
+  background-image: url(${props => props.backgroundImage || 'https://placehold.co/800x600/1677ff/ffffff?text=Campus+Photo'});
   background-size: cover;
   background-position: center;
   display: flex;
@@ -158,6 +166,19 @@ const PhotoSection = styled.div`
     min-height: 50vh;
     height: auto;
   }
+`;
+
+const LoadingOverlay = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 2;
 `;
 
 const PhotoOverlayText = styled.div`
@@ -217,6 +238,44 @@ const NewLogin = () => {
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
   
+  const [backgroundImage, setBackgroundImage] = useState('');
+  const [imageLoading, setImageLoading] = useState(true);
+  
+  useEffect(() => {
+    const fetchBackgroundImage = async () => {
+      try {
+        setImageLoading(true);
+        
+        const settingsDoc = await getDoc(doc(db, 'settings', SETTINGS_DOC_ID));
+        
+        if (settingsDoc.exists() && settingsDoc.data().loginBackgroundImage) {
+          setBackgroundImage(settingsDoc.data().loginBackgroundImage);
+        } else {
+          const { data, error } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'login_background_image')
+            .single();
+          
+          if (error) {
+            console.error('Error fetching background image:', error);
+            return;
+          }
+          
+          if (data && data.value) {
+            setBackgroundImage(data.value);
+          }
+        }
+      } catch (error) {
+        console.error('Error in background image fetch:', error);
+      } finally {
+        setImageLoading(false);
+      }
+    };
+    
+    fetchBackgroundImage();
+  }, []);
+  
   const handleLogin = async (values) => {
     setLoading(true);
     setLoginError('');
@@ -265,7 +324,8 @@ const NewLogin = () => {
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
-        password: values.password
+        password: values.password,
+        gender: values.gender
       });
       
       message.success('Registration successful! Please log in.');
@@ -301,7 +361,6 @@ const NewLogin = () => {
       <HeaderContainer>
         <LogoContainer>
           <LogoImage src={philscaLogo} alt="PhilSCA Logo" />
-          <Logo>GUIDANCE SERVICES</Logo>
         </LogoContainer>
         
         <LoginFormHeader>
@@ -365,7 +424,12 @@ const NewLogin = () => {
       )}
       
       <MainContainer>
-        <PhotoSection>
+        <PhotoSection backgroundImage={backgroundImage}>
+          {imageLoading && (
+            <LoadingOverlay>
+              <Spin size="large" />
+            </LoadingOverlay>
+          )}
           <PhotoOverlayText>
             <Title level={2} style={{ color: 'white' }}>
               GUIDANCE SERVICES MANAGEMENT USING WEB-BASED SYSTEM
@@ -553,8 +617,10 @@ const NewLogin = () => {
           <Form.Item
             name="studentId"
             label="Student ID"
-            rules={[[{ required: true, message: 'Please enter your student ID' },
-              { pattern: /^\d{5}MN-\d{6}$/, message: 'Please use proper format (e.g., 11718MN-012140)' }]]}
+            rules={[
+              { required: true, message: 'Please enter your student ID' },
+              { pattern: /^\d{5}MN-\d{6}$/, message: 'Please use proper format (e.g., 11718MN-012140)' }
+            ]}
           >
             <Input 
               prefix={<IdcardOutlined />} 
@@ -585,10 +651,23 @@ const NewLogin = () => {
           </Form.Item>
           
           <Form.Item
+            name="gender"
+            label="Gender"
+            rules={[{ required: true, message: 'Please select your gender' }]}
+          >
+            <Select placeholder="Select your gender">
+              <Select.Option value="male">Male</Select.Option>
+              <Select.Option value="female">Female</Select.Option>
+            </Select>
+          </Form.Item>
+          
+          <Form.Item
             name="email"
             label="Email"
-            rules={[[{ required: true, message: 'Please enter your email' },
-              { type: 'email', message: 'Please enter a valid email' }]]}
+            rules={[
+              { required: true, message: 'Please enter your email' },
+              { type: 'email', message: 'Please enter a valid email' }
+            ]}
           >
             <Input 
               prefix={<MailOutlined />} 
@@ -599,8 +678,10 @@ const NewLogin = () => {
           <Form.Item
             name="password"
             label="Password"
-            rules={[[{ required: true, message: 'Please enter your password' },
-              { min: 8, message: 'Password must be at least 8 characters' }]]}
+            rules={[
+              { required: true, message: 'Please enter your password' },
+              { min: 8, message: 'Password must be at least 8 characters' }
+            ]}
           >
             <Input.Password 
               prefix={<LockOutlined />} 
@@ -612,7 +693,8 @@ const NewLogin = () => {
             name="confirmPassword"
             label="Confirm Password"
             dependencies={['password']}
-            rules={[[{ required: true, message: 'Please confirm your password' },
+            rules={[
+              { required: true, message: 'Please confirm your password' },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue('password') === value) {
@@ -620,7 +702,8 @@ const NewLogin = () => {
                   }
                   return Promise.reject(new Error('The two passwords do not match'));
                 },
-              })]]}
+              })
+            ]}
           >
             <Input.Password 
               prefix={<LockOutlined />} 
@@ -688,8 +771,10 @@ const NewLogin = () => {
             <Form.Item
               name="email"
               label="Email Address"
-              rules={[[{ required: true, message: 'Please enter your email address' },
-                { type: 'email', message: 'Please enter a valid email address' }]]}
+              rules={[
+                { required: true, message: 'Please enter your email address' },
+                { type: 'email', message: 'Please enter a valid email address' }
+              ]}
             >
               <Input 
                 prefix={<MailOutlined />} 
