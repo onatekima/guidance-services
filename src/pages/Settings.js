@@ -8,16 +8,22 @@ import {
   message, 
   Spin,
   Divider,
-  Image
+  Image,
+  Form,
+  Input,
+  Tabs,
+  Select
 } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
+import { UploadOutlined, UserOutlined, LockOutlined, MailOutlined, SaveOutlined } from '@ant-design/icons';
 import { db } from '../firebase/config';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import supabase from '../supabase/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadImage } from '../firebase/resourcesService';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
+const { TabPane } = Tabs;
+const { Option } = Select;
 
 const PageContainer = styled.div`
   max-width: 800px;
@@ -36,14 +42,17 @@ const ImagePreviewContainer = styled.div`
 const SETTINGS_DOC_ID = 'app_settings';
 
 const Settings = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, setCurrentUser } = useAuth();
   const [fileList, setFileList] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [currentBackgroundImage, setCurrentBackgroundImage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [profileForm] = Form.useForm();
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
     fetchCurrentBackground();
+    fetchUserData();
   }, []);
 
   const fetchCurrentBackground = async () => {
@@ -78,6 +87,51 @@ const Settings = () => {
       message.error('Failed to load current background image');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserData = async () => {
+    if (currentUser?.id) {
+      try {
+        const userDoc = await getDoc(doc(db, "users", currentUser.id));
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData(data);
+          profileForm.setFieldsValue({
+            firstName: data.firstName,
+            lastName: data.lastName,
+            gender: data.gender
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        message.error("Failed to load user data");
+      }
+    }
+  };
+
+  const updateProfileInfo = async (values) => {
+    if (!currentUser?.id) return;
+    
+    try {
+      const userRef = doc(db, "users", currentUser.id);
+      await updateDoc(userRef, {
+        firstName: values.firstName,
+        lastName: values.lastName,
+        gender: values.gender
+      });
+      
+      const updatedUser = {
+        ...currentUser,
+        name: `${values.firstName} ${values.lastName}`
+      };
+      setCurrentUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      
+      message.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      message.error("Failed to update profile");
     }
   };
 
@@ -144,7 +198,70 @@ const Settings = () => {
   };
 
   if (!currentUser || currentUser.role !== 'guidance') {
-    return <div>Access denied</div>;
+    return (
+      <PageContainer>
+        <Title level={2}>Account Settings</Title>
+        <Text type="secondary">Manage your account information and security settings</Text>
+        
+        <Divider />
+        
+        <Tabs defaultActiveKey="profile">
+          <TabPane tab="Profile Information" key="profile">
+            <StyledCard title="Personal Information">
+              <Form
+                form={profileForm}
+                layout="vertical"
+                onFinish={updateProfileInfo}
+              >
+                <Form.Item
+                  name="firstName"
+                  label="First Name"
+                  rules={[{ required: true, message: 'Please enter your first name' }]}
+                >
+                  <Input 
+                    prefix={<UserOutlined />} 
+                    placeholder="Enter your first name" 
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  name="lastName"
+                  label="Last Name"
+                  rules={[{ required: true, message: 'Please enter your last name' }]}
+                >
+                  <Input 
+                    prefix={<UserOutlined />} 
+                    placeholder="Enter your last name" 
+                  />
+                </Form.Item>
+
+                <Form.Item
+                  name="gender"
+                  label="Gender"
+                  rules={[{ required: true, message: 'Please select your gender' }]}
+                >
+                  <Select placeholder="Select your gender">
+                    <Option value="male">Male</Option>
+                    <Option value="female">Female</Option>
+                    <Option value="other">Other</Option>
+                  </Select>
+                </Form.Item>
+                
+                <Form.Item>
+                  <Button 
+                    type="primary" 
+                    htmlType="submit" 
+                    icon={<SaveOutlined />}
+                  >
+                    Save Changes
+                  </Button>
+                </Form.Item>
+              </Form>
+            </StyledCard>
+          </TabPane>
+        </Tabs>
+      </PageContainer>
+    );
   }
 
   return (
