@@ -401,7 +401,9 @@ export const createAppointmentCancelledByStudentNotification = async (appointmen
         message: message,
         appointmentId: appointment.id,
         createdAt: Timestamp.now(),
-        unread: true
+        unread: true,
+        requiresAcknowledgment: true,
+        acknowledged: false
       };
       
       notificationPromises.push(addDoc(collection(db, 'notifications'), notificationData));

@@ -76,7 +76,7 @@ const GuidanceAppointmentDetails = ({ appointment, onClose, onStatusChange }) =>
                 <p style={{ margin: '4px 0' }}><strong>Cancellation Reason:</strong> {appointment.cancellationReason}</p>
                 {appointment.cancellationBy === 'guidance' && (
                   <p style={{ margin: '4px 0' }}>
-                    <strong>Acknowledged by Student:</strong> {appointment.acknowledged ? 
+                    <strong>Acknowledged:</strong> {appointment.acknowledged ? 
                       <Tag color="green">Yes</Tag> : 
                       <Tag color="orange">No</Tag>
                     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { List, Tag, Button, Empty, Modal, message, Spin, Alert, Input, Form } from 'antd';
-import { CalendarOutlined, ClockCircleOutlined, UserOutlined, EyeOutlined, CloseOutlined, ExclamationCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { CalendarOutlined, ClockCircleOutlined, UserOutlined, EyeOutlined, CloseOutlined, ExclamationCircleOutlined, CheckCircleOutlined, CheckOutlined } from '@ant-design/icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { useAuth } from '../../context/AuthContext';
@@ -205,7 +205,8 @@ const AppointmentList = () => {
       setAppointments(appointments.map(app => 
         app.id === appointmentToAcknowledge.id ? { 
           ...app, 
-          acknowledged: true
+          acknowledged: true,
+          acknowledgedAt: new Date()
         } : app
       ));
       
@@ -216,7 +217,8 @@ const AppointmentList = () => {
       if (selectedAppointment && selectedAppointment.id === appointmentToAcknowledge.id) {
         setSelectedAppointment({
           ...selectedAppointment,
-          acknowledged: true
+          acknowledged: true,
+          acknowledgedAt: new Date()
         });
       }
     } catch (error) {
@@ -435,6 +437,50 @@ const AppointmentList = () => {
                 <p style={{ margin: '4px 0', whiteSpace: 'pre-wrap' }}>{selectedAppointment.notes}</p>
               </div>
             )}
+            
+            {selectedAppointment?.status === 'cancelled' && selectedAppointment?.cancellationBy === 'guidance' && (
+              <div style={{ marginTop: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 8px 0' }}>Cancellation Information</h4>
+                <p style={{ margin: '4px 0', color: '#ff4d4f' }}><strong>Cancellation Reason:</strong> {selectedAppointment.cancellationReason || 'No reason provided'}</p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Acknowledged:</strong> {selectedAppointment.acknowledged ? 
+                    <Tag color="green">Yes</Tag> : 
+                    <Tag color="orange">No</Tag>
+                  }
+                </p>
+                {selectedAppointment.acknowledged && selectedAppointment.acknowledgedAt && (
+                  <p style={{ margin: '4px 0' }}>
+                    <strong>Acknowledged On:</strong> {
+                      selectedAppointment.acknowledgedAt.toDate ? 
+                      moment(selectedAppointment.acknowledgedAt.toDate()).format('YYYY-MM-DD HH:mm') : 
+                      moment(selectedAppointment.acknowledgedAt).format('YYYY-MM-DD HH:mm')
+                    }
+                  </p>
+                )}
+              </div>
+            )}
+            
+            {selectedAppointment?.status === 'cancelled' && selectedAppointment?.cancellationBy === 'student' && (
+              <div style={{ marginTop: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>
+                <h4 style={{ margin: '0 0 8px 0' }}>Cancellation Information</h4>
+                <p style={{ margin: '4px 0', color: '#ff4d4f' }}><strong>Your Cancellation Reason:</strong> {selectedAppointment.cancellationReason || 'No reason provided'}</p>
+                <p style={{ margin: '4px 0' }}>
+                  <strong>Acknowledged:</strong> {selectedAppointment.acknowledged ? 
+                    <Tag color="green">Yes</Tag> : 
+                    <Tag color="orange">No</Tag>
+                  }
+                </p>
+                {selectedAppointment.acknowledged && selectedAppointment.acknowledgedAt && (
+                  <p style={{ margin: '4px 0' }}>
+                    <strong>Acknowledged On:</strong> {
+                      selectedAppointment.acknowledgedAt.toDate ? 
+                      moment(selectedAppointment.acknowledgedAt.toDate()).format('YYYY-MM-DD HH:mm') : 
+                      moment(selectedAppointment.acknowledgedAt).format('YYYY-MM-DD HH:mm')
+                    }
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </Modal>
@@ -503,24 +549,37 @@ const AppointmentList = () => {
       >
         {appointmentToAcknowledge && (
           <>
-            <p>Your appointment has been cancelled by the guidance counselor. Please acknowledge that you have read the cancellation reason.</p>
+            <Alert
+              message="Cancellation Notification"
+              description="Your appointment has been cancelled by the guidance counselor. Please acknowledge that you have read the cancellation reason."
+              type="info"
+              showIcon
+              style={{ marginBottom: '16px' }}
+            />
             
-            <div style={{ marginTop: '16px', background: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
-              <p style={{ margin: '4px 0' }}><strong>Date:</strong> {appointmentToAcknowledge.date}</p>
-              <p style={{ margin: '4px 0' }}><strong>Time:</strong> {appointmentToAcknowledge.timeSlot}</p>
-              <p style={{ margin: '4px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToAcknowledge.counselorType)}</p>
-              <p style={{ margin: '4px 0', color: '#ff4d4f' }}><strong>Cancellation Reason:</strong> {appointmentToAcknowledge.cancellationReason}</p>
+            <div style={{ background: '#f5f5f5', padding: '16px', borderRadius: '4px' }}>
+              <h4 style={{ margin: '0 0 12px 0', borderBottom: '1px solid #d9d9d9', paddingBottom: '8px' }}>Appointment Details</h4>
+              <p style={{ margin: '8px 0' }}><strong>Date:</strong> {appointmentToAcknowledge.date}</p>
+              <p style={{ margin: '8px 0' }}><strong>Time:</strong> {appointmentToAcknowledge.timeSlot}</p>
+              <p style={{ margin: '8px 0' }}><strong>Counselor Type:</strong> {getCounselorTypeLabel(appointmentToAcknowledge.counselorType)}</p>
+              
+              <h4 style={{ margin: '16px 0 12px 0', borderBottom: '1px solid #d9d9d9', paddingBottom: '8px' }}>Cancellation Information</h4>
+              <p style={{ margin: '8px 0', color: '#ff4d4f', fontWeight: 500 }}>
+                <strong>Reason:</strong> {appointmentToAcknowledge.cancellationReason || 'No reason provided'}
+              </p>
             </div>
             
-            <AcknowledgeButton 
-              type="primary" 
-              block
-              icon={<CheckCircleOutlined />}
-              onClick={handleAcknowledgeCancellation}
-              loading={actionLoading}
-            >
-              I Acknowledge This Cancellation
-            </AcknowledgeButton>
+            <div style={{ marginTop: '16px', textAlign: 'center' }}>
+              <Button
+                type="primary"
+                size="large"
+                icon={<CheckOutlined />}
+                onClick={handleAcknowledgeCancellation}
+                loading={actionLoading}
+              >
+                I Acknowledge This Cancellation
+              </Button>
+            </div>
           </>
         )}
       </Modal>
