@@ -40,6 +40,10 @@ const AuthErrorContainer = styled.div`
   margin-bottom: 20px;
 `;
 
+const SuccessMessage = styled(Alert)`
+  margin-bottom: 20px;
+`;
+
 const AppointmentForm = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -48,6 +52,7 @@ const AppointmentForm = () => {
   const [allTimeSlots, setAllTimeSlots] = useState([]);
   const [fetchingTimeSlots, setFetchingTimeSlots] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
   
   const auth = useAuth();
@@ -162,10 +167,16 @@ const AppointmentForm = () => {
       
       await bookAppointment(appointmentData);
       
+      setSuccess(true);
       message.success('Appointment booked successfully!');
-      form.resetFields();
-      setSelectedDate(null);
-      setBookedTimeSlots([]);
+      
+      setTimeout(() => {
+        form.resetFields();
+        setSelectedDate(null);
+        setBookedTimeSlots([]);
+        setSuccess(false);
+      }, 3000);
+      
     } catch (error) {
       console.error("Error booking appointment:", error);
       message.error('Failed to book appointment. Please try again.');
@@ -208,6 +219,15 @@ const AppointmentForm = () => {
 
   return (
     <FormContainer>
+      {success && (
+        <SuccessMessage
+          message="Appointment Submitted Successfully"
+          description="Your appointment has been submitted. You can view details in the 'My Appointments' tab."
+          type="success"
+          showIcon
+        />
+      )}
+      
       <Form
         form={form}
         layout="vertical"
