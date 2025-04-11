@@ -24,9 +24,11 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         // Get user profile from Firestore
         const userDoc = await getDoc(doc(db, "users", user.uid));
+        console.log('userDoc', userDoc);
         
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          console.log('userData', userData);
           
           // Create user object with combined auth and profile data
           const userObject = {
@@ -34,7 +36,8 @@ export const AuthProvider = ({ children }) => {
             name: `${userData.firstName} ${userData.lastName}`,
             role: userData.role,
             email: userData.email,
-            studentId: userData.studentId
+            studentId: userData.studentId,
+            gender: userData.gender || 'N/A',
           };
           
           setCurrentUser(userObject);

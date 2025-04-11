@@ -6,7 +6,7 @@ import { bookAppointment, getAvailableTimeSlots, getAllTimeSlots } from '../../f
 import { useAuth } from '../../context/AuthContext';
 import moment from 'moment';
 import { useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 
 const { Option } = Select;
@@ -145,6 +145,9 @@ const AppointmentForm = () => {
         studentName = auth.currentUser.email;
       }
       
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.id));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      
       const appointmentData = {
         studentId: auth.currentUser.studentId || 'guest',
         studentName: studentName,
@@ -153,7 +156,8 @@ const AppointmentForm = () => {
         timeSlot: values.timeSlot,
         purpose: values.purpose,
         status: 'pending',
-        email: auth.currentUser.email || ''
+        email: auth.currentUser.email || '',
+        gender: userData.gender || null
       };
       
       await bookAppointment(appointmentData);

@@ -611,6 +611,9 @@ const GuidanceAppointments = () => {
               <p style={{ margin: '4px 0' }}><strong>Student ID:</strong> {selectedAppointment.studentId}</p>
               <p style={{ margin: '4px 0' }}><strong>Name:</strong> {selectedAppointment.studentName}</p>
               <p style={{ margin: '4px 0' }}><strong>Email:</strong> {selectedAppointment.email || 'Not provided'}</p>
+              <p style={{ margin: '4px 0' }}><strong>Gender:</strong> {selectedAppointment.gender ? 
+                (selectedAppointment.gender.charAt(0).toUpperCase() + selectedAppointment.gender.slice(1)) : 
+                'Not provided'}</p>
             </div>
             
             <div style={{ marginBottom: '16px', padding: '12px', background: '#f5f5f5', borderRadius: '4px' }}>

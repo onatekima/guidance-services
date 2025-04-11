@@ -385,6 +385,14 @@ const GuidanceAnonymousConsultations = () => {
           <Text type="secondary">
             Date: {activeConsultation.createdAt ? moment(activeConsultation.createdAt.toDate()).format('YYYY-MM-DD HH:mm') : 'Unknown'}
           </Text>
+          {activeConsultation.gender && (
+            <>
+              <br />
+              <Text type="secondary">
+                Gender: {activeConsultation.gender.charAt(0).toUpperCase() + activeConsultation.gender.slice(1)}
+              </Text>
+            </>
+          )}
         </Paragraph>
         
         <ChatContainer ref={chatContainerRef}>

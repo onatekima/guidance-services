@@ -57,6 +57,8 @@ const AnonymousConsultationForm = () => {
       // Get current user ID
       const auth = getAuth();
       const currentUser = auth.currentUser;
+
+      console.log(currentUser)
       
       if (!currentUser) {
         setError('You must be logged in to submit a consultation');
@@ -68,7 +70,8 @@ const AnonymousConsultationForm = () => {
         concernCategory: values.concernCategory,
         details: values.details,
         userId: currentUser.uid,
-        nickname: values.nickname || 'Anonymous'
+        nickname: values.nickname || 'Anonymous',
+        gender: currentUser.gender || null // Include gender from user data
       };
       
       // Submit to Firebase
