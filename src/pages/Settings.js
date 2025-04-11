@@ -15,11 +15,13 @@ import {
   Select
 } from 'antd';
 import { UploadOutlined, UserOutlined, LockOutlined, MailOutlined, SaveOutlined } from '@ant-design/icons';
-import { db } from '../firebase/config';
+import { db, auth } from '../firebase/config';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import supabase from '../supabase/supabaseClient';
 import { useAuth } from '../context/AuthContext';
 import { uploadImage } from '../firebase/resourcesService';
+
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -39,6 +41,16 @@ const ImagePreviewContainer = styled.div`
   max-width: 400px;
 `;
 
+const StyledForm = styled(Form)`
+  .ant-form-item-label {
+    font-weight: 500;
+  }
+`;
+
+const SubmitButton = styled(Button)`
+  min-width: 120px;
+`;
+
 const SETTINGS_DOC_ID = 'app_settings';
 
 const Settings = () => {
@@ -49,6 +61,12 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [profileForm] = Form.useForm();
   const [userData, setUserData] = useState(null);
+
+  const [emailForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadingEmail, setLoadingEmail] = useState(false);
+  const [loadingPassword, setLoadingPassword] = useState(false);
 
   useEffect(() => {
     fetchCurrentBackground();
@@ -135,6 +153,82 @@ const Settings = () => {
     }
   };
 
+  const updateUserEmail = async (values) => {
+      if (!currentUser?.id || !auth.currentUser) return;
+      
+      setLoadingEmail(true);
+      try {
+        // Re-authenticate user
+        const credential = EmailAuthProvider.credential(
+          auth.currentUser.email,
+          values.currentPassword
+        );
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        
+        // Update email in Firebase Auth
+        await updateEmail(auth.currentUser, values.email);
+        
+        // Update email in Firestore
+        const userRef = doc(db, "users", currentUser.id);
+        await updateDoc(userRef, {
+          email: values.email
+        });
+        
+        // Update context and localStorage
+        const updatedUser = {
+          ...currentUser,
+          email: values.email
+        };
+        setCurrentUser(updatedUser);
+        localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+        
+        message.success("Email updated successfully");
+        emailForm.resetFields(['currentPassword']);
+      } catch (error) {
+        console.error("Error updating email:", error);
+        if (error.code === 'auth/wrong-password') {
+          message.error("Incorrect password");
+        } else if (error.code === 'auth/requires-recent-login') {
+          message.error("Please log out and log back in before changing your email");
+        } else {
+          message.error("Failed to update email");
+        }
+      } finally {
+        setLoadingEmail(false);
+      }
+    };
+  
+    const updateUserPassword = async (values) => {
+      if (!auth.currentUser) return;
+      
+      setLoadingPassword(true);
+      try {
+        // Re-authenticate user
+        const credential = EmailAuthProvider.credential(
+          auth.currentUser.email,
+          values.currentPassword
+        );
+        await reauthenticateWithCredential(auth.currentUser, credential);
+        
+        // Update password in Firebase Auth
+        await updatePassword(auth.currentUser, values.newPassword);
+        
+        message.success("Password updated successfully");
+        passwordForm.resetFields();
+      } catch (error) {
+        console.error("Error updating password:", error);
+        if (error.code === 'auth/wrong-password') {
+          message.error("Incorrect current password");
+        } else if (error.code === 'auth/requires-recent-login') {
+          message.error("Please log out and log back in before changing your password");
+        } else {
+          message.error("Failed to update password");
+        }
+      } finally {
+        setLoadingPassword(false);
+      }
+    };
+
   const uploadProps = {
     onRemove: () => {
       setFileList([]);
@@ -208,7 +302,7 @@ const Settings = () => {
         <Tabs defaultActiveKey="profile">
           <TabPane tab="Profile Information" key="profile">
             <StyledCard title="Personal Information">
-              <Form
+              <StyledForm
                 form={profileForm}
                 layout="vertical"
                 onFinish={updateProfileInfo}
@@ -234,29 +328,143 @@ const Settings = () => {
                     placeholder="Enter your last name" 
                   />
                 </Form.Item>
-
-                <Form.Item
-                  name="gender"
-                  label="Gender"
-                  rules={[{ required: true, message: 'Please select your gender' }]}
-                >
-                  <Select placeholder="Select your gender">
-                    <Option value="male">Male</Option>
-                    <Option value="female">Female</Option>
-                    <Option value="other">Other</Option>
-                  </Select>
-                </Form.Item>
+                
+                {currentUser?.role === 'student' && (
+                  <Form.Item
+                    label="Student ID"
+                  >
+                    <Input 
+                      value={userData?.studentId || currentUser?.studentId}
+                      disabled
+                    />
+                  </Form.Item>
+                )}
                 
                 <Form.Item>
-                  <Button 
+                  <SubmitButton 
                     type="primary" 
                     htmlType="submit" 
+                    loading={loadingProfile}
                     icon={<SaveOutlined />}
                   >
                     Save Changes
-                  </Button>
+                  </SubmitButton>
                 </Form.Item>
-              </Form>
+              </StyledForm>
+            </StyledCard>
+          </TabPane>
+          
+          <TabPane tab="Email" key="email">
+            <StyledCard title="Change Email">
+              <StyledForm
+                form={emailForm}
+                layout="vertical"
+                onFinish={updateUserEmail}
+              >
+                <Form.Item
+                  name="email"
+                  label="New Email Address"
+                  rules={[
+                    { required: true, message: 'Please enter your email' },
+                    { type: 'email', message: 'Please enter a valid email' }
+                  ]}
+                >
+                  <Input 
+                    prefix={<MailOutlined />} 
+                    placeholder="Enter your new email" 
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  name="currentPassword"
+                  label="Current Password"
+                  rules={[{ required: true, message: 'Please enter your current password' }]}
+                >
+                  <Input.Password 
+                    prefix={<LockOutlined />} 
+                    placeholder="Enter your current password" 
+                  />
+                </Form.Item>
+                
+                <Form.Item>
+                  <SubmitButton 
+                    type="primary" 
+                    htmlType="submit" 
+                    loading={loadingEmail}
+                    icon={<SaveOutlined />}
+                  >
+                    Update Email
+                  </SubmitButton>
+                </Form.Item>
+              </StyledForm>
+            </StyledCard>
+          </TabPane>
+          
+          <TabPane tab="Password" key="password">
+            <StyledCard title="Change Password">
+              <StyledForm
+                form={passwordForm}
+                layout="vertical"
+                onFinish={updateUserPassword}
+              >
+                <Form.Item
+                  name="currentPassword"
+                  label="Current Password"
+                  rules={[{ required: true, message: 'Please enter your current password' }]}
+                >
+                  <Input.Password 
+                    prefix={<LockOutlined />} 
+                    placeholder="Enter your current password" 
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  name="newPassword"
+                  label="New Password"
+                  rules={[
+                    { required: true, message: 'Please enter your new password' },
+                    { min: 8, message: 'Password must be at least 8 characters' }
+                  ]}
+                >
+                  <Input.Password 
+                    prefix={<LockOutlined />} 
+                    placeholder="Enter your new password" 
+                  />
+                </Form.Item>
+                
+                <Form.Item
+                  name="confirmPassword"
+                  label="Confirm New Password"
+                  dependencies={['newPassword']}
+                  rules={[
+                    { required: true, message: 'Please confirm your new password' },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue('newPassword') === value) {
+                          return Promise.resolve();
+                        }
+                        return Promise.reject(new Error('The two passwords do not match'));
+                      },
+                    }),
+                  ]}
+                >
+                  <Input.Password 
+                    prefix={<LockOutlined />} 
+                    placeholder="Confirm your new password" 
+                  />
+                </Form.Item>
+                
+                <Form.Item>
+                  <SubmitButton 
+                    type="primary" 
+                    htmlType="submit" 
+                    loading={loadingPassword}
+                    icon={<SaveOutlined />}
+                  >
+                    Update Password
+                  </SubmitButton>
+                </Form.Item>
+              </StyledForm>
             </StyledCard>
           </TabPane>
         </Tabs>
